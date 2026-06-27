@@ -1,0 +1,164 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-display: "Space Grotesk", sans-serif;
+  --color-brand-teal: #14b8a6;
+  --color-brand-indigo: #6366f1;
+  --color-brand-emerald: #10b981;
+  --color-brand-amber: #f59e0b;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #050505;
+}
+
+body {
+  background-color: #050505;
+  color: #e2e8f0;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #050505; }
+::-webkit-scrollbar-thumb { background: #1a1f2e; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #252b3d; }
+
+/* Hide default cursor on hover devices */
+@media (hover: hover) and (pointer: fine) {
+  .custom-cursor-active,
+  .custom-cursor-active * { cursor: none !important; }
+}
+
+/* Grid overlay */
+.grid-overlay {
+  background-size: 44px 44px;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.018) 1px, transparent 1px);
+}
+
+/* Animations */
+@keyframes drift {
+  0%,100% { transform: translate(0,0) scale(1); opacity: 0.22; }
+  33%      { transform: translate(28px,-48px) scale(1.14); opacity: 0.32; }
+  66%      { transform: translate(-18px,36px) scale(0.91); opacity: 0.18; }
+}
+@keyframes pulse-slow {
+  0%,100% { opacity: 0.4; }
+  50%     { opacity: 0.7; }
+}
+@keyframes float {
+  0%,100% { transform: translateY(0px); }
+  50%     { transform: translateY(-10px); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.animate-drift-slow   { animation: drift 26s ease-in-out infinite; }
+.animate-drift-slower { animation: drift 38s ease-in-out infinite reverse; }
+.animate-pulse-slow   { animation: pulse-slow 4s ease-in-out infinite; }
+.animate-float        { animation: float 6s ease-in-out infinite; }
+
+/* Glow text */
+.glow-teal    { text-shadow: 0 0 24px rgba(20,184,166,0.45); }
+.glow-indigo  { text-shadow: 0 0 24px rgba(99,102,241,0.5); }
+.glow-emerald { text-shadow: 0 0 24px rgba(16,185,129,0.45); }
+.glow-amber   { text-shadow: 0 0 24px rgba(245,158,11,0.4); }
+
+/* Shimmer gradient text */
+.shimmer-text {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.4) 0%,
+    rgba(255,255,255,1) 30%,
+    rgba(99,102,241,0.8) 50%,
+    rgba(255,255,255,1) 70%,
+    rgba(255,255,255,0.4) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Card glass morphism */
+.glass-card {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* Gradient borders */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.4), rgba(20,184,166,0.4), rgba(99,102,241,0.1));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Wizard step connector */
+.step-line::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(99,102,241,0.5), transparent);
+}
+
+/* Terminal style */
+.terminal {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  background: #0a0c14;
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 0.75rem;
+}
+.terminal-header {
+  background: #0f1220;
+  border-bottom: 1px solid rgba(99,102,241,0.15);
+  border-radius: 0.75rem 0.75rem 0 0;
+  padding: 0.6rem 1rem;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.terminal-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+
+/* Progress bar */
+.progress-bar {
+  background: linear-gradient(90deg, #6366f1, #14b8a6);
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+/* Tool card hover glow */
+.tool-card-teal:hover   { box-shadow: 0 0 40px rgba(20,184,166,0.15), 0 20px 60px rgba(0,0,0,0.4); }
+.tool-card-indigo:hover { box-shadow: 0 0 40px rgba(99,102,241,0.15), 0 20px 60px rgba(0,0,0,0.4); }
+.tool-card-emerald:hover{ box-shadow: 0 0 40px rgba(16,185,129,0.15), 0 20px 60px rgba(0,0,0,0.4); }
+.tool-card-amber:hover  { box-shadow: 0 0 40px rgba(245,158,11,0.15),  0 20px 60px rgba(0,0,0,0.4); }
