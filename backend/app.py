@@ -1,6 +1,6 @@
 """
 web-team — Flask backend
-Serves API routes for all 4 tools.
+Serves API routes for all 4 tools + the React frontend build.
 Run: python app.py  |  gunicorn app:app
 """
 import json
@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, request, Response, stream_with_context
+from flask import Flask, jsonify, request, Response, stream_with_context, send_from_directory, send_file
 from flask_cors import CORS
 
 try:
@@ -27,7 +27,11 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"),
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("web-team")
 
-app = Flask(__name__)
+# React build lives at ../frontend/dist (built by build.sh before gunicorn starts)
+BASE_DIR   = Path(__file__).resolve().parent
+REACT_DIST = BASE_DIR.parent / "frontend" / "dist"
+
+app = Flask(__name__, static_folder=str(REACT_DIST), static_url_path="")
 app.secret_key = os.getenv("SECRET_KEY", secrets.token_hex(32))
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
@@ -470,6 +474,22 @@ def github_push():
                     yield from emit("error", r3.stderr.strip() or "Push failed")
 
     return Response(stream_with_context(_stream()), mimetype="application/x-ndjson")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# React catch-all — serve index.html for any non-API route (React Router)
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react(path):
+    # If the file exists in dist (CSS, JS, images etc.) serve it directly
+    if path and (REACT_DIST / path).exists():
+        return send_from_directory(str(REACT_DIST), path)
+    # Otherwise hand over to React Router
+    index = REACT_DIST / "index.html"
+    if index.exists():
+        return send_file(str(index))
+    return jsonify({"error": "React build not found. Run build.sh first."}), 404
 
 
 # ══════════════════════════════════════════════════════════════════════════════

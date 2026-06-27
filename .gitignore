@@ -1,5 +1,4 @@
 frontend/node_modules/
-frontend/dist/
 backend/.venv/
 backend/output/
 backend/.env
@@ -7,3 +6,5 @@ backend/.env
 *.pyc
 .DS_Store
 Thumbs.db
+
+# frontend/dist is NOT ignored — Render's build.sh generates it on deploy
