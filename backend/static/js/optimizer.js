@@ -48,13 +48,19 @@
 
   function renderScores(d) {
     const m = d.scores.mobile, k = d.scores.desktop;
+    const note = document.getElementById('scoreNote');
+    if (d.scoresEstimated && d.scoreNote) {
+      note.textContent = d.scoreNote;
+      note.classList.remove('hidden');
+    } else { note.classList.add('hidden'); }
+    const suffix = d.scoresEstimated ? ' (est.)' : '';
     document.getElementById('mScore').textContent = m;
     document.getElementById('mScore').className = 'score-big ' + sClass(m);
-    document.getElementById('mLabel').textContent = sLabel(m);
+    document.getElementById('mLabel').textContent = sLabel(m) + suffix;
     document.getElementById('mLabel').className = sClass(m);
     document.getElementById('dScore').textContent = k;
     document.getElementById('dScore').className = 'score-big ' + sClass(k);
-    document.getElementById('dLabel').textContent = sLabel(k);
+    document.getElementById('dLabel').textContent = sLabel(k) + suffix;
     document.getElementById('dLabel').className = sClass(k);
     document.getElementById('fixCount').textContent = d.autoFixCount;
 

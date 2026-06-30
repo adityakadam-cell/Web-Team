@@ -390,6 +390,8 @@ def optimize():
     if not url or not html:
         return jsonify({"error":"url and html are required"}), 400
 
+    scores_estimated = False
+    score_note = ""
     try:
         # Try to use existing optimizer module
         opt_path = Path(__file__).parent.parent / "optimizer-app" / "optimizer-wizard-main"
@@ -412,12 +414,21 @@ def optimize():
             optimized, auto_count, manual_fixes = _basic_optimize(html)
             mobile_score  = _pagespeed_score(url, "mobile")
             desktop_score = _pagespeed_score(url, "desktop")
+            if not mobile_score and not desktop_score:
+                # PageSpeed unavailable (API not enabled / quota) -> estimate from HTML
+                est = _estimate_perf_score(html)
+                mobile_score, desktop_score = est, min(100, est + 8)
+                scores_estimated = True
+                score_note = ("Estimated from page HTML - enable the PageSpeed Insights API "
+                              "on your Google key for live Lighthouse scores.")
 
         result = {
-            "scores":       {"mobile": mobile_score, "desktop": desktop_score},
-            "autoFixCount": auto_count,
-            "fixes":        [{"title":f["title"],"what":f.get("what",""),"why":f.get("why",""),"how":f.get("how","")} for f in manual_fixes[:8]],
-            "optimizedHtml": optimized,
+            "scores":         {"mobile": mobile_score, "desktop": desktop_score},
+            "scoresEstimated": scores_estimated,
+            "scoreNote":      score_note,
+            "autoFixCount":   auto_count,
+            "fixes":          [{"title":f["title"],"what":f.get("what",""),"why":f.get("why",""),"how":f.get("how","")} for f in manual_fixes[:8]],
+            "optimizedHtml":  optimized,
         }
 
         # Email if requested
@@ -506,6 +517,27 @@ def pagespeed_check():
     if not url.startswith("http"):
         url = "https://" + url
     return jsonify({"url": url, "strategy": strategy, "score": _pagespeed_score(url, strategy)})
+
+
+def _estimate_perf_score(html: str) -> int:
+    """Rough performance-hygiene score (0-100) from the HTML, used when the live
+    PageSpeed API is unavailable so the tool still returns a meaningful number."""
+    import re
+    score = 100
+    scripts = re.findall(r"<script\b[^>]*>", html, re.I)
+    blocking = [s for s in scripts if "src=" in s.lower() and "defer" not in s.lower() and "async" not in s.lower()]
+    score -= min(len(blocking) * 5, 35)                      # render-blocking scripts
+    imgs = re.findall(r"<img\b[^>]*>", html, re.I)
+    no_lazy = [i for i in imgs if "loading=" not in i.lower()]
+    score -= min(len(no_lazy) * 2, 25)                       # non-lazy images
+    if not re.search(r'name=["\']viewport', html, re.I):
+        score -= 10
+    inline_css = sum(len(x) for x in re.findall(r"<style[^>]*>(.*?)</style>", html, re.I | re.S))
+    if inline_css > 30000:
+        score -= 8
+    if len(html) > 250000:
+        score -= 8                                           # heavy DOM
+    return max(0, min(100, score))
 
 
 def _send_optimizer_email(to:str, result:dict, url:str):

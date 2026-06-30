@@ -13,3 +13,4 @@ frontend/
 # Local-only helpers (kept on disk, not committed)
 fix-and-push.bat
 preview-home.html
+*-optimization-report.html
