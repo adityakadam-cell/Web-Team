@@ -14,21 +14,6 @@
     <div class="blob a"></div><div class="blob b"></div><div class="blob c"></div>
   </div>
 
-  <header class="nav" id="nav">
-    <a class="brand" href="{{ url_for('home') }}">
-      <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
-      web<span class="i">team</span>
-    </a>
-    <nav class="nav-links" id="navLinks">
-      <a href="{{ url_for('clone_page') }}" class="{{ 'active' if active=='clone' }}">Clone — HTML</a>
-      <a href="{{ url_for('audit_page') }}" class="{{ 'active' if active=='audit' }}">Web — Audit</a>
-      <a href="{{ url_for('optimizer_page') }}" class="{{ 'active' if active=='optimizer' }}">Optimizer — Portal</a>
-    </nav>
-    <button class="nav-toggle" id="navToggle" aria-label="Menu">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
-  </header>
-
   <main>
     {% block content %}{% endblock %}
   </main>

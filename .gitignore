@@ -7,4 +7,9 @@ backend/.env
 .DS_Store
 Thumbs.db
 
-# frontend/dist is NOT ignored — Render's build.sh generates it on deploy
+# Deprecated React frontend — replaced by the all-Python Flask app
+frontend/
+
+# Local-only helpers (kept on disk, not committed)
+fix-and-push.bat
+preview-home.html
