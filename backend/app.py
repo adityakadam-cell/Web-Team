@@ -474,7 +474,7 @@ def _pagespeed_score(url: str, strategy: str = "mobile") -> int:
     try:
         import requests
         params = {"url": url, "strategy": strategy, "category": "performance"}
-        key = os.getenv("PAGESPEED_API_KEY", "").strip()
+        key = (os.getenv("PAGESPEED_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
         if key:
             params["key"] = key
         r = requests.get(

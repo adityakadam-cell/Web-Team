@@ -319,3 +319,26 @@ textarea.inp{resize:vertical;min-height:160px;line-height:1.6;font-size:13px}
 .foot a:hover{color:rgba(255,255,255,.65)}
 .foot .links{display:flex;gap:22px}
 .foot .by{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.18)}
+
+/* ── Development banner (full-width, fixed top) ─────────────── */
+.dev-banner{
+  position:fixed;top:0;left:0;right:0;z-index:200;height:32px;
+  display:flex;align-items:center;overflow:hidden;
+  background:linear-gradient(90deg,rgba(245,158,11,.16),rgba(99,102,241,.12),rgba(245,158,11,.16));
+  border-bottom:1px solid rgba(245,158,11,.35);
+  box-shadow:0 0 26px rgba(245,158,11,.16);
+  backdrop-filter:blur(8px);
+}
+.dev-banner::before,.dev-banner::after{
+  content:"";position:absolute;top:0;bottom:0;width:80px;z-index:2;pointer-events:none;
+}
+.dev-banner::before{left:0;background:linear-gradient(90deg,#050505,transparent)}
+.dev-banner::after{right:0;background:linear-gradient(270deg,#050505,transparent)}
+.dev-marquee{
+  display:inline-flex;white-space:nowrap;will-change:transform;
+  animation:marquee 28s linear infinite;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#fcd34d;
+}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.dev-banner:hover .dev-marquee{animation-play-state:paused}
+body{padding-top:32px}
