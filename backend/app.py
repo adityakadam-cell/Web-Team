@@ -718,8 +718,8 @@ def _gemini_generate(prompt: str):
                 return data["candidates"][0]["content"]["parts"][0]["text"]
             err = (data.get("error") or {}).get("message", "") or str(list(data.keys()))
             log.warning("gemini model=%s http=%s err=%s", model, r.status_code, err[:240])
-            # Key/permission errors won't be fixed by another model name -> stop early.
-            if r.status_code in (400, 401, 403) and "model" not in err.lower() and "not found" not in err.lower():
+            # Key/permission/quota errors won't be fixed by another model name -> stop early.
+            if r.status_code in (400, 401, 403, 429) and "model" not in err.lower() and "not found" not in err.lower():
                 break
         except Exception as e:
             log.warning("gemini model=%s exception: %s", model, e)
