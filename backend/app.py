@@ -235,6 +235,23 @@ def audit_run():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/audit/scan")
+def audit_scan():
+    """GET util — run the synchronous audit and return the report HTML directly."""
+    url = (request.args.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url query param required"}), 400
+    try:
+        data = _run_audit_sync(url, {
+            "max_pages": int(request.args.get("max_pages", 8) or 8),
+            "keyword": request.args.get("keyword", ""),
+        })
+    except Exception as e:
+        log.exception("audit scan failed")
+        return jsonify({"error": str(e)}), 500
+    return Response(data.get("reportHtml") or "<p>No pages crawled.</p>", mimetype="text/html")
+
+
 def _check_page(soup, resp, keyword: str):
     """Run an on-page SEO checklist for one page. Returns (score, checks)."""
     checks = []
