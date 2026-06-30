@@ -364,17 +364,21 @@ def _audit_report_html(url, overall, pages, categories):
             name=c["name"], col=color(c["score"]), score=c["score"])
         for c in categories)
 
+    css = ("<style>body{background:#050505;color:#e2e8f0;font-family:system-ui,sans-serif;"
+           "max-width:900px;margin:0 auto;padding:40px 24px}h1{font-size:28px}"
+           "table{border-collapse:collapse;width:100%;margin:16px 0}"
+           "td{border-bottom:1px solid #1a1a22}</style>")
+    # Built by concatenation (NOT .format) so the literal CSS braces are safe.
     return (
         "<!doctype html><html><head><meta charset='utf-8'><title>SEO Audit Report</title>"
-        "<style>body{background:#050505;color:#e2e8f0;font-family:system-ui,sans-serif;max-width:900px;margin:0 auto;padding:40px 24px}"
-        "h1{font-size:28px}table{border-collapse:collapse;width:100%;margin:16px 0}td{border-bottom:1px solid #1a1a22}</style></head><body>"
-        "<h1>SEO Audit Report</h1><p style='color:#888'>{url}</p>"
-        "<div style='font-size:64px;font-weight:800;color:{ocol}'>{overall}<span style='font-size:22px;color:#666'>/100</span></div>"
-        "<p>{n} pages analysed.</p>"
-        "<h2 style='font-size:18px;margin-top:28px'>Checklist pass rates</h2><table>{cats}</table>"
-        "<h2 style='font-size:18px;margin-top:28px'>Per-page results</h2>{rows}</body></html>".format(
-            url=url, ocol=color(overall), overall=overall, n=len(pages),
-            cats=cats, rows="".join(rows)))
+        + css + "</head><body>"
+        + "<h1>SEO Audit Report</h1><p style='color:#888'>" + str(url) + "</p>"
+        + "<div style='font-size:64px;font-weight:800;color:" + color(overall) + "'>"
+        + str(overall) + "<span style='font-size:22px;color:#666'>/100</span></div>"
+        + "<p>" + str(len(pages)) + " pages analysed.</p>"
+        + "<h2 style='font-size:18px;margin-top:28px'>Checklist pass rates</h2><table>" + cats + "</table>"
+        + "<h2 style='font-size:18px;margin-top:28px'>Per-page results</h2>" + "".join(rows)
+        + "</body></html>")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
