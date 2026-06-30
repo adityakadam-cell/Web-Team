@@ -9,13 +9,13 @@
 
   const state = { mode: 'files', files: [], pages: [] };
 
-  // Step 0 → 1
+  // Step 0 to 1
   const url = document.getElementById('url');
   const toHtml = document.getElementById('toHtmlBtn');
   url.addEventListener('input', () => { toHtml.disabled = !url.value.trim(); });
   toHtml.addEventListener('click', () => goto(1));
 
-  // Step 1 → 2
+  // Step 1 to 2
   const html = document.getElementById('html');
   const toContent = document.getElementById('toContentBtn');
   html.addEventListener('input', () => { toContent.disabled = !html.value.trim(); });
@@ -104,7 +104,7 @@
         '<button class="check ' + (p.approved ? 'on' : '') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>' +
         '<div style="flex:1;min-width:0"><p style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + WT.esc(p.title || p.filename) + '</p>' +
         '<p style="font-size:11px;color:rgba(255,255,255,.25);font-family:var(--font-mono)">' + WT.esc(p.filename) + '</p></div>' +
-        '<a href="/api/clone/download/' + encodeURIComponent(p.filename) + '" download style="color:rgba(255,255,255,.25)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>';
+        '<a href="data:text/html;charset=utf-8,' + encodeURIComponent(p.html || '') + '" download="' + WT.esc(p.filename) + '" style="color:rgba(255,255,255,.25)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>';
       row.querySelector('.check').addEventListener('click', (e) => {
         p.approved = !p.approved;
         e.currentTarget.classList.toggle('on', p.approved);
@@ -119,15 +119,17 @@
     document.getElementById('selCount').textContent = state.pages.filter((p) => p.approved).length + ' selected';
   }
 
-  // download zip
+  // download (single page -> .html, multiple -> .zip via JSZip)
   document.getElementById('dlBtn').addEventListener('click', async () => {
-    const approved = state.pages.filter((p) => p.approved).map((p) => p.filename);
+    const approved = state.pages.filter((p) => p.approved);
     if (!approved.length) return;
-    const res = await fetch('/api/clone/zip', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filenames: approved }),
-    });
-    WT.downloadBlob(await res.blob(), 'cloned-pages.zip');
+    if (approved.length === 1 || typeof JSZip === 'undefined') {
+      WT.downloadBlob(new Blob([approved[0].html || ''], { type: 'text/html' }), approved[0].filename);
+      return;
+    }
+    const zip = new JSZip();
+    approved.forEach((p, i) => zip.file((i + 1) + '-' + p.filename, p.html || ''));
+    WT.downloadBlob(await zip.generateAsync({ type: 'blob' }), 'cloned-pages.zip');
   });
 
   document.getElementById('newBtn').addEventListener('click', () => {

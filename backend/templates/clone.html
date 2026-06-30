@@ -122,6 +122,7 @@ Tip: open the URL in Chrome → right-click → View Page Source → select all 
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="{{ url_for('static', filename='js/finish.js') }}"></script>
 <script src="{{ url_for('static', filename='js/clone.js') }}"></script>
 {% endblock %}

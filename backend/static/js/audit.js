@@ -7,7 +7,7 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const state = { industry: 'general', deep: false, jobId: '', reportUrl: '' };
+  const state = { industry: 'general', deep: false, reportHtml: '' };
 
   // industry chips
   document.querySelectorAll('#industries .opt').forEach((b) => {
@@ -23,32 +23,35 @@
   deepBtn.addEventListener('click', () => {
     state.deep = !state.deep;
     deepBtn.classList.toggle('sel', state.deep);
-    deepBtn.textContent = (state.deep ? 'On' : 'Off') + ' — also check images + CTA links';
+    deepBtn.textContent = (state.deep ? 'On' : 'Off') + ' - also check images + CTA links';
   });
 
   const url = document.getElementById('url');
   const startBtn = document.getElementById('startBtn');
   url.addEventListener('input', () => { startBtn.disabled = !url.value.trim(); document.getElementById('urlErr').classList.add('hidden'); });
 
-  const validUrl = (u) => { try { new URL(u.startsWith('http') ? u : 'https://' + u); return true; } catch { return false; } };
+  const validUrl = (u) => { try { new URL(u.startsWith('http') ? u : 'https://' + u); return true; } catch (e) { return false; } };
 
   startBtn.addEventListener('click', async () => {
     const u = url.value.trim();
     if (!validUrl(u)) { document.getElementById('urlErr').classList.remove('hidden'); return; }
     const full = u.startsWith('http') ? u : 'https://' + u;
-    const maxPages = +document.getElementById('maxPages').value || 30;
+    const maxPages = +document.getElementById('maxPages').value || 10;
     goto(1);
     document.getElementById('crawlError').classList.add('hidden');
     document.getElementById('crawlLoading').classList.remove('hidden');
-    document.getElementById('crawlCount').textContent = '0 / ' + maxPages + ' pages';
+    document.getElementById('crawlPhase').textContent = 'Crawling & analysing...';
+    document.getElementById('crawlCount').textContent = 'up to ' + maxPages + ' pages - this can take ~20-40s';
+    document.getElementById('crawlBar').style.width = '45%';
     try {
-      const res = await fetch('/api/audit/start', {
+      const res = await fetch('/api/audit/run', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: full, industry: state.industry, keyword: document.getElementById('keyword').value, email: document.getElementById('email').value, max_pages: maxPages, deep: state.deep }),
+        body: JSON.stringify({ url: full, industry: state.industry, keyword: document.getElementById('keyword').value, max_pages: maxPages, deep: state.deep }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Server error');
-      poll(data.job_id);
+      document.getElementById('crawlBar').style.width = '100%';
+      renderResults(data);
     } catch (e) { failCrawl(e.message); }
   });
 
@@ -56,23 +59,6 @@
     document.getElementById('crawlLoading').classList.add('hidden');
     document.getElementById('crawlError').classList.remove('hidden');
     document.getElementById('crawlErrMsg').textContent = msg;
-  }
-
-  function poll(jobId) {
-    state.jobId = jobId;
-    const iv = setInterval(async () => {
-      try {
-        const r = await fetch('/api/audit/status/' + jobId);
-        const d = await r.json();
-        if (d.phase) document.getElementById('crawlPhase').textContent = d.phase;
-        if (d.total) {
-          document.getElementById('crawlCount').textContent = (d.current || 0) + ' / ' + d.total + ' pages';
-          document.getElementById('crawlBar').style.width = Math.min(100, ((d.current || 0) / d.total) * 100) + '%';
-        }
-        if (d.status === 'done') { clearInterval(iv); renderResults(d.results); }
-        else if (d.status === 'error') { clearInterval(iv); failCrawl(d.error || 'Audit failed'); }
-      } catch (_) { /* keep polling */ }
-    }, 2000);
   }
 
   const sClass = (s) => (s >= 80 ? 'good' : s >= 50 ? 'mid' : 'bad');
@@ -85,15 +71,14 @@
     document.getElementById('resPass').textContent = r.passCount;
     document.getElementById('resFail').textContent = r.failCount;
     document.getElementById('resInfo').textContent = r.infoCount;
-    state.reportUrl = r.htmlReport || '';
-    const dl = document.getElementById('dlBtn');
-    if (!state.reportUrl) { dl.disabled = true; dl.title = 'No downloadable report in fallback mode'; }
+    state.reportHtml = r.reportHtml || '';
+    document.getElementById('dlBtn').disabled = !state.reportHtml;
     goto(2);
   }
 
-  // download report
+  // download report (client-side blob)
   document.getElementById('dlBtn').addEventListener('click', () => {
-    if (state.reportUrl) window.location.href = state.reportUrl;
+    if (state.reportHtml) WT.downloadBlob(new Blob([state.reportHtml], { type: 'text/html' }), 'seo-audit-report.html');
   });
 
   document.getElementById('crawlRetry').addEventListener('click', () => goto(0));
