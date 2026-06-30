@@ -392,6 +392,7 @@ def optimize():
 
     scores_estimated = False
     score_note = ""
+    ai_suggestions = False
     try:
         # Try to use existing optimizer module
         opt_path = Path(__file__).parent.parent / "optimizer-app" / "optimizer-wizard-main"
@@ -414,6 +415,11 @@ def optimize():
             optimized, auto_count, manual_fixes = _basic_optimize(html)
             mobile_score  = _pagespeed_score(url, "mobile")
             desktop_score = _pagespeed_score(url, "desktop")
+            # Gemini-powered page-specific suggestions (replaces the generic checklist when available)
+            ai_fixes = _gemini_optimize_suggestions(url, html)
+            if ai_fixes:
+                manual_fixes = ai_fixes
+                ai_suggestions = True
             if not mobile_score and not desktop_score:
                 # PageSpeed unavailable (API not enabled / quota) -> estimate from HTML
                 est = _estimate_perf_score(html)
@@ -426,6 +432,7 @@ def optimize():
             "scores":         {"mobile": mobile_score, "desktop": desktop_score},
             "scoresEstimated": scores_estimated,
             "scoreNote":      score_note,
+            "aiSuggestions":  ai_suggestions,
             "autoFixCount":   auto_count,
             "fixes":          [{"title":f["title"],"what":f.get("what",""),"why":f.get("why",""),"how":f.get("how","")} for f in manual_fixes[:8]],
             "optimizedHtml":  optimized,
@@ -538,6 +545,45 @@ def _estimate_perf_score(html: str) -> int:
     if len(html) > 250000:
         score -= 8                                           # heavy DOM
     return max(0, min(100, score))
+
+
+def _gemini_optimize_suggestions(url: str, html: str):
+    """Use Gemini to produce page-specific performance/SEO suggestions.
+    Returns a list of {title, what, why, how} dicts, or [] if unavailable."""
+    prompt = (
+        "You are a senior web performance and SEO engineer. Analyse the HTML of the page below "
+        "and produce the most impactful, SPECIFIC optimisation suggestions for THIS page. "
+        "Reference concrete things you actually see (script/library names, image patterns, meta "
+        "tags, render-blocking resources, third-party widgets). Return ONLY a JSON array of 5 to 7 "
+        "objects, each with exactly these keys: title, what, why, how. No markdown, no text outside "
+        "the JSON.\n\nURL: " + url + "\n\nHTML (truncated):\n" + html[:12000]
+    )
+    raw = _gemini_generate(prompt)
+    if not raw:
+        return []
+    import json, re
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = re.sub(r"^json\s*", "", raw, flags=re.I).strip()
+    m = re.search(r"\[.*\]", raw, re.S)
+    if m:
+        raw = m.group(0)
+    try:
+        items = json.loads(raw)
+        out = []
+        for it in items[:8]:
+            if isinstance(it, dict) and it.get("title"):
+                out.append({
+                    "title": str(it.get("title", ""))[:140],
+                    "what":  str(it.get("what", "")),
+                    "why":   str(it.get("why", "")),
+                    "how":   str(it.get("how", "")),
+                })
+        return out
+    except Exception as e:
+        log.warning("gemini suggestions parse failed: %s", e)
+        return []
 
 
 def _send_optimizer_email(to:str, result:dict, url:str):
