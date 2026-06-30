@@ -34,8 +34,14 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("SECRET_KEY", secrets.token_hex(32))
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-OUTPUT_DIR = Path(__file__).parent / "output"
-OUTPUT_DIR.mkdir(exist_ok=True)
+# Output dir for generated reports/zips. On read-only hosts (e.g. Vercel
+# serverless) the local folder can't be created, so fall back to /tmp.
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", str(Path(__file__).parent / "output")))
+try:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    OUTPUT_DIR = Path("/tmp/web-team-output")
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # In-memory job store (single worker)
