@@ -1,0 +1,3 @@
+# Root requirements — lets Nixpacks/Railway detect this as a Python app.
+# The actual app lives in backend/ (see Procfile / railway.json).
+-r backend/requirements.txt

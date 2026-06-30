@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Web — Audit · Web Team{% endblock %}
+
+{% block content %}
+<div class="tool-page grid-overlay">
+  <div class="tool-glow teal"></div>
+  <div class="tool-shell">
+    <a class="back-link" href="{{ url_for('home') }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to terminal
+    </a>
+
+    <div class="tool-head">
+      <h1 class="teal">WEB — AUDIT</h1>
+      <p>Crawl your entire site and score every page against a 27-point SEO checklist.</p>
+    </div>
+
+    <div class="steps" id="steps">
+      <div class="step-chip"><span class="num">1</span>Setup</div>
+      <div class="step-sep"></div>
+      <div class="step-chip"><span class="num">2</span>Crawling</div>
+      <div class="step-sep"></div>
+      <div class="step-chip"><span class="num">3</span>Results</div>
+    </div>
+
+    <!-- STEP 0: Setup -->
+    <section id="panel0">
+      <div class="glass teal">
+        <div class="field">
+          <label class="lbl">Website URL *</label>
+          <input class="inp teal" id="url" placeholder="https://yoursite.com">
+          <div class="err hidden" id="urlErr">Enter a valid URL (e.g. https://example.com)</div>
+        </div>
+        <div class="field">
+          <label class="lbl">Industry</label>
+          <div class="opt-grid" id="industries">
+            <button class="opt sel" data-v="general">General</button>
+            <button class="opt" data-v="metals">Metals / Industrial</button>
+            <button class="opt" data-v="ecommerce">E-commerce</button>
+            <button class="opt" data-v="saas">SaaS</button>
+            <button class="opt" data-v="healthcare">Healthcare</button>
+            <button class="opt" data-v="realestate">Real Estate</button>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label class="lbl">Target Keyword</label><input class="inp teal" id="keyword" placeholder="e.g. stainless steel pipes"></div>
+          <div class="field"><label class="lbl">Max Pages</label><input class="inp teal" id="maxPages" type="number" min="1" max="200" value="30"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label class="lbl">Email (optional)</label><input class="inp teal" id="email" placeholder="report@company.com"></div>
+          <div class="field">
+            <label class="lbl">Deep Audit</label>
+            <button class="opt" id="deepToggle" style="width:100%">Off — also check images + CTA links</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn teal" id="startBtn" style="margin-top:20px" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Start Audit
+      </button>
+    </section>
+
+    <!-- STEP 1: Crawling -->
+    <section id="panel1" class="hidden">
+      <div class="glass">
+        <div id="crawlLoading" class="loading">
+          <div class="spinner teal"><span class="base"></span><span class="arc"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+          <h3 id="crawlPhase">Crawling pages…</h3>
+          <p id="crawlCount">0 / 30 pages</p>
+          <div class="progress"><div class="bar" id="crawlBar" style="width:0%"></div></div>
+        </div>
+        <div id="crawlError" class="loading hidden">
+          <h3 class="bad">Audit failed</h3>
+          <p id="crawlErrMsg" class="bad"></p>
+          <button class="btn ghost" id="crawlRetry" style="margin:18px auto 0">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Results + finish -->
+    <section id="panel2" class="hidden">
+      <div class="glass" style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><h3 style="font-size:18px;font-weight:600">Audit Complete</h3><p style="color:var(--faint);font-size:13px" id="resPages">0 pages analysed</p></div>
+          <div class="score-big" id="resScore">0</div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><div class="v good" id="resPass">0</div><div class="l">Passed</div></div>
+          <div class="stat"><div class="v bad" id="resFail">0</div><div class="l">Issues</div></div>
+          <div class="stat"><div class="v mid" id="resInfo">0</div><div class="l">Info</div></div>
+        </div>
+      </div>
+
+      <h3 style="font-size:14px;color:var(--muted);margin-bottom:14px">Ship your report</h3>
+      {% with accent='teal', dl_label='Download Report', dl_hint='Get the full HTML audit report with every page score and gap analysis.', folder_default='' %}
+        {% include "_finish.html" %}
+      {% endwith %}
+
+      <button class="btn ghost" id="newBtn" style="margin:20px auto 0;width:100%">New Audit</button>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/finish.js') }}"></script>
+<script src="{{ url_for('static', filename='js/audit.js') }}"></script>
+{% endblock %}

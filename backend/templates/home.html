@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Web Team — Authorized Operators Only{% endblock %}
+
+{% block content %}
+<section class="terminal-hero">
+  <div class="eyebrow reveal"><span class="dot"></span> Web-Team Central Operations Terminal</div>
+
+  <h1 class="hero-title reveal d1">Authorized <em>operators</em> only</h1>
+
+  <p class="hero-sub reveal d2">
+    Decryption node active. Select your tool module<br>
+    to initialize a private workspace container.
+  </p>
+
+  <div class="ops-grid">
+    <!-- CLONE — HTML -->
+    <a href="{{ url_for('clone_page') }}" class="op-card emerald reveal d2">
+      <div class="medallion">
+        <span class="ring"></span><span class="ring inner"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </div>
+      <span class="op-badge">Content Cloner</span>
+      <div class="op-name">CLONE — HTML</div>
+      <div class="op-node">secure operational node</div>
+      <p class="op-quote">"Replicating any page's design structure and refilling it with your own content, pixel-faithful."</p>
+      <div class="op-foot"><span class="sys">CG_CLONE_SYS</span><span class="status"><span class="led"></span> Connected</span></div>
+      <div class="op-launch">▸ Initialize Module</div>
+    </a>
+
+    <!-- WEB — AUDIT -->
+    <a href="{{ url_for('audit_page') }}" class="op-card teal reveal d3">
+      <div class="medallion">
+        <span class="ring"></span><span class="ring inner"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span class="op-badge">SEO Audit</span>
+      <div class="op-name">WEB — AUDIT</div>
+      <div class="op-node">secure operational node</div>
+      <p class="op-quote">"Crawling every page and scoring it against a 27-point industrial SEO checklist."</p>
+      <div class="op-foot"><span class="sys">CG_AUDIT_SYS</span><span class="status"><span class="led"></span> Connected</span></div>
+      <div class="op-launch">▸ Initialize Module</div>
+    </a>
+
+    <!-- OPTIMIZER — PORTAL -->
+    <a href="{{ url_for('optimizer_page') }}" class="op-card indigo reveal d4">
+      <div class="medallion">
+        <span class="ring"></span><span class="ring inner"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <span class="op-badge">PageSpeed</span>
+      <div class="op-name">OPTIMIZER — PORTAL</div>
+      <div class="op-node">secure operational node</div>
+      <p class="op-quote">"Pulling live PageSpeed scores and applying automatic fixes to hit aggressive performance targets."</p>
+      <div class="op-foot"><span class="sys">CG_OPTIM_SYS</span><span class="status"><span class="led"></span> Connected</span></div>
+      <div class="op-launch">▸ Initialize Module</div>
+    </a>
+  </div>
+
+  <div class="hero-footline reveal d4">3 modules · 1 terminal · push to github or download</div>
+</section>
+{% endblock %}

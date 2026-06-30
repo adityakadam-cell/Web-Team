@@ -1,0 +1,67 @@
+{# Shared finish step: Download OR Push to GitHub.
+   Params: accent (teal|indigo|emerald), dl_label, dl_hint, folder_default #}
+<div class="finish-grid">
+
+  <!-- Download option -->
+  <div class="finish-opt">
+    <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</h4>
+    <p>{{ dl_hint }}</p>
+    <button class="btn {{ accent }}" id="dlBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      {{ dl_label }}
+    </button>
+  </div>
+
+  <!-- Push to GitHub option -->
+  <div class="finish-opt">
+    <h4><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.5v-1.7c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.6.8.5 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg> Push to GitHub</h4>
+    <p>Push the generated output straight to a GitHub repository with a Personal Access Token — no terminal.</p>
+    <button class="btn amber" id="ghOpenBtn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.5v-1.7c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.6.8.5 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+      Configure Push
+    </button>
+  </div>
+</div>
+
+<!-- GitHub push form (hidden until "Configure Push") -->
+<div class="glass hidden" id="ghForm" style="margin-top:16px">
+  <div class="note">
+    <b>Need a token?</b> GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic) → tick the <b>repo</b> scope → Generate → paste below. Your token is sent only to your own backend to run the push.
+  </div>
+  <div class="field">
+    <label class="lbl">GitHub Username *</label>
+    <input class="inp" id="ghUser" placeholder="your-github-username" autocomplete="off">
+  </div>
+  <div class="field">
+    <label class="lbl">Personal Access Token *</label>
+    <input class="inp mono" id="ghToken" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+  </div>
+  <div class="field">
+    <label class="lbl">Folder to push *</label>
+    <input class="inp mono" id="ghFolder" value="{{ folder_default }}" placeholder="path on the machine running this server">
+    <div class="hint">The folder on the server/computer running web-team that holds the generated output.</div>
+  </div>
+  <div class="field">
+    <label class="lbl">Repository URL *</label>
+    <input class="inp" id="ghRepo" placeholder="https://github.com/username/repo">
+  </div>
+  <div class="grid2">
+    <div class="field">
+      <label class="lbl">Branch</label>
+      <input class="inp" id="ghBranch" value="main">
+    </div>
+    <div class="field">
+      <label class="lbl">Commit Message</label>
+      <input class="inp" id="ghMsg" placeholder="Auto: timestamp">
+    </div>
+  </div>
+  <button class="btn amber" id="ghPushBtn" style="margin-top:6px">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.5v-1.7c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.6.8.5 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+    Push to GitHub
+  </button>
+
+  <div class="terminal hidden" id="ghTerm" style="margin-top:16px">
+    <div class="terminal-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="ttitle">git push</span></div>
+    <div class="terminal-body" id="ghLogs"></div>
+  </div>
+</div>

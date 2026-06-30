@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, request, Response, stream_with_context, send_from_directory, send_file
+from flask import Flask, jsonify, request, Response, stream_with_context, send_from_directory, send_file, render_template
 from flask_cors import CORS
 
 try:
@@ -27,11 +27,10 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"),
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("web-team")
 
-# React build lives at ../frontend/dist (built by build.sh before gunicorn starts)
-BASE_DIR   = Path(__file__).resolve().parent
-REACT_DIST = BASE_DIR.parent / "frontend" / "dist"
+# All-Python app: Flask serves the Jinja pages (templates/) + assets (static/).
+BASE_DIR = Path(__file__).resolve().parent
 
-app = Flask(__name__, static_folder=str(REACT_DIST), static_url_path="")
+app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("SECRET_KEY", secrets.token_hex(32))
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
@@ -50,6 +49,26 @@ JOBS: dict = {}
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok", "tools": ["audit","optimize","clone","github"]})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGES (server-rendered Jinja templates)
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route("/")
+def home():
+    return render_template("home.html", active="home")
+
+@app.route("/clone")
+def clone_page():
+    return render_template("clone.html", active="clone")
+
+@app.route("/audit")
+def audit_page():
+    return render_template("audit.html", active="audit")
+
+@app.route("/optimizer")
+def optimizer_page():
+    return render_template("optimizer.html", active="optimizer")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -477,23 +496,15 @@ def github_push():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# React catch-all — serve index.html for any non-API route (React Router)
-# ══════════════════════════════════════════════════════════════════════════════
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve_react(path):
-    # If the file exists in dist (CSS, JS, images etc.) serve it directly
-    if path and (REACT_DIST / path).exists():
-        return send_from_directory(str(REACT_DIST), path)
-    # Otherwise hand over to React Router
-    index = REACT_DIST / "index.html"
-    if index.exists():
-        return send_file(str(index))
-    return jsonify({"error": "React build not found. Run build.sh first."}), 404
+@app.errorhandler(404)
+def not_found(_e):
+    # API routes return JSON; everything else falls back to the home terminal.
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "not found"}), 404
+    return render_template("home.html", active="home"), 404
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    log.info("web-team backend → http://localhost:%d", port)
+    log.info("web-team backend -> http://localhost:%d", port)
     app.run(host="0.0.0.0", port=port, debug=False)

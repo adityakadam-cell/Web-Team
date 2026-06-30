@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Clone — HTML · Web Team{% endblock %}
+
+{% block content %}
+<div class="tool-page grid-overlay">
+  <div class="tool-glow emerald"></div>
+  <div class="tool-shell">
+    <a class="back-link" href="{{ url_for('home') }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to terminal
+    </a>
+
+    <div class="tool-head">
+      <h1 class="emerald">CLONE — HTML</h1>
+      <p>Clone any page's design and refill it with your own content.</p>
+    </div>
+
+    <div class="steps" id="steps">
+      <div class="step-chip"><span class="num">1</span>Design URL</div>
+      <div class="step-sep"></div>
+      <div class="step-chip"><span class="num">2</span>HTML</div>
+      <div class="step-sep"></div>
+      <div class="step-chip"><span class="num">3</span>Content</div>
+      <div class="step-sep"></div>
+      <div class="step-chip"><span class="num">4</span>Build</div>
+      <div class="step-sep"></div>
+      <div class="step-chip"><span class="num">5</span>Ship</div>
+    </div>
+
+    <!-- STEP 0: URL -->
+    <section id="panel0">
+      <div class="glass" style="--fc:rgba(16,185,129,.5)">
+        <div class="note" style="background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.16);color:rgba(110,231,183,.8)">
+          Point at any live webpage. The cloner copies its design structure and fills it with your content.
+        </div>
+        <div class="field">
+          <label class="lbl">Reference Page URL *</label>
+          <input class="inp" id="url" placeholder="https://example.com/product-page">
+        </div>
+      </div>
+      <button class="btn emerald" id="toHtmlBtn" style="margin-top:20px" disabled>Next: Capture Design</button>
+    </section>
+
+    <!-- STEP 1: HTML -->
+    <section id="panel1" class="hidden">
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="ttitle">design.html</span></div>
+        <textarea class="inp mono" id="html" style="border:none;border-radius:0;background:transparent;min-height:280px" placeholder="Paste the full HTML of the reference page here.
+
+Tip: open the URL in Chrome → right-click → View Page Source → select all → paste here."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="backToUrl">Back</button>
+        <button class="btn emerald" id="toContentBtn" disabled>Next: Add Content</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: Content -->
+    <section id="panel2" class="hidden">
+      <div class="glass" style="padding:8px;display:flex;gap:8px;margin-bottom:16px">
+        <button class="opt sel" id="modeFiles" style="flex:1;text-align:center" data-mode="files">Upload Files</button>
+        <button class="opt" id="modeSheet" style="flex:1;text-align:center" data-mode="sheet">Google Sheet</button>
+      </div>
+
+      <div id="filesBox" class="glass">
+        <div class="upload" id="uploadZone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Click to upload files</p>
+          <p class="sub">.docx · .pdf · .csv · .txt (max 10 files)</p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".docx,.pdf,.csv,.txt" class="hidden">
+        <div id="fileList"></div>
+      </div>
+
+      <div id="sheetBox" class="glass hidden">
+        <div class="note" style="background:rgba(255,255,255,.03);border-color:var(--line);color:var(--faint)">
+          Required columns: <b style="color:#6ee7b7">Product · Doc · Meta Title · Meta Description · Url</b>. Make the sheet publicly viewable before pasting the URL.
+        </div>
+        <div class="field"><input class="inp" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn ghost" id="backToHtml">Back</button>
+        <button class="btn emerald" id="buildBtn" disabled>Build Pages</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: Building -->
+    <section id="panel3" class="hidden">
+      <div class="glass">
+        <div id="buildLoading" class="loading">
+          <div class="spinner emerald"><span class="base"></span><span class="arc"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </div>
+          <h3>Building your pages</h3>
+          <p>Analysing content, filling the design template…</p>
+        </div>
+        <div id="buildError" class="loading hidden">
+          <h3 class="bad">Build failed</h3>
+          <p id="buildErrMsg" class="bad"></p>
+          <button class="btn ghost" id="buildRetry" style="margin:18px auto 0">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 4: Ship -->
+    <section id="panel4" class="hidden">
+      <div class="glass" style="padding:0;overflow:hidden;margin-bottom:18px">
+        <div style="padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;font-size:14px">
+          <span><b id="pageCount">0</b> pages built</span><span style="color:var(--faint)" id="selCount">0 selected</span>
+        </div>
+        <div id="pageList"></div>
+      </div>
+      <h3 style="font-size:14px;color:var(--muted);margin-bottom:14px">Ship your pages</h3>
+      {% with accent='emerald', dl_label='Download ZIP', dl_hint='Download the selected cloned pages bundled as a ZIP archive.', folder_default='' %}
+        {% include "_finish.html" %}
+      {% endwith %}
+      <button class="btn ghost" id="newBtn" style="margin:20px auto 0;width:100%">New Clone</button>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/finish.js') }}"></script>
+<script src="{{ url_for('static', filename='js/clone.js') }}"></script>
+{% endblock %}
