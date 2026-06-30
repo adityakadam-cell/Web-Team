@@ -73,6 +73,25 @@
     document.getElementById('resInfo').textContent = r.infoCount;
     state.reportHtml = r.reportHtml || '';
     document.getElementById('dlBtn').disabled = !state.reportHtml;
+
+    const aiBox = document.getElementById('aiBox');
+    const aiList = document.getElementById('aiList');
+    aiList.innerHTML = '';
+    if (r.aiFixes && r.aiFixes.length) {
+      r.aiFixes.forEach((f) => {
+        const row = document.createElement('div');
+        row.className = 'fix';
+        row.innerHTML = '<div class="fix-head"><span>' + WT.esc(f.title) + '</span><span style="color:var(--faint)">+</span></div>' +
+          '<div class="fix-body"><p><span class="k">What: </span>' + WT.esc(f.what || '') + '</p>' +
+          '<p><span class="k">Why: </span>' + WT.esc(f.why || '') + '</p>' +
+          '<p><span class="k">How: </span>' + WT.esc(f.how || '') + '</p></div>';
+        row.querySelector('.fix-head').addEventListener('click', () => row.classList.toggle('open'));
+        aiList.appendChild(row);
+      });
+      aiBox.classList.remove('hidden');
+    } else {
+      aiBox.classList.add('hidden');
+    }
     goto(2);
   }
 

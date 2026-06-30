@@ -339,6 +339,7 @@ def _run_audit_sync(url: str, data: dict):
                 agg[c["name"]][0] += 1
     categories = [{"name": k, "score": int(round(v[0] / v[1] * 100))} for k, v in agg.items()]
 
+    ai_fixes = _gemini_audit_analysis(url, pages)
     return {
         "overallScore": overall,
         "totalPages":   len(pages),
@@ -346,15 +347,32 @@ def _run_audit_sync(url: str, data: dict):
         "failCount":    sum(1 for p in pages if p["score"] < 50),
         "infoCount":    sum(1 for p in pages if 50 <= p["score"] < 70),
         "categories":   categories,
-        "reportHtml":   _audit_report_html(url, overall, pages, categories),
+        "aiFixes":      ai_fixes,
+        "reportHtml":   _audit_report_html(url, overall, pages, categories, ai_fixes),
     }
 
 
-def _audit_report_html(url, overall, pages, categories):
+def _audit_report_html(url, overall, pages, categories, ai_fixes=None):
     """Standalone HTML report string (downloaded client-side as a Blob).
     Built with plain concatenation/.format to stay Python 3.9+ safe."""
     def color(s):
         return "#10b981" if s >= 70 else ("#f59e0b" if s >= 50 else "#ef4444")
+
+    def esc(s):
+        return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+    ai_html = ""
+    if ai_fixes:
+        cards = ""
+        for f in ai_fixes:
+            cards += (
+                "<div style='margin:10px 0;padding:14px;border:1px solid #2a2f45;border-radius:10px;background:#0e1018'>"
+                "<b style='color:#a5b4fc'>" + esc(f.get("title", "")) + "</b>"
+                "<p style='margin:6px 0 0;color:#cbd5e1;font-size:13px'><b>What:</b> " + esc(f.get("what", "")) + "</p>"
+                "<p style='margin:4px 0 0;color:#9aa3b8;font-size:13px'><b>Why:</b> " + esc(f.get("why", "")) + "</p>"
+                "<p style='margin:4px 0 0;color:#9aa3b8;font-size:13px'><b>How:</b> " + esc(f.get("how", "")) + "</p></div>")
+        ai_html = ("<h2 style='font-size:18px;margin-top:28px'>AI Recommendations "
+                   "<span style='font-size:13px;color:#666'>(Gemini)</span></h2>" + cards)
 
     rows = []
     for p in pages:
@@ -393,6 +411,7 @@ def _audit_report_html(url, overall, pages, categories):
         + "<div style='font-size:64px;font-weight:800;color:" + color(overall) + "'>"
         + str(overall) + "<span style='font-size:22px;color:#666'>/100</span></div>"
         + "<p>" + str(len(pages)) + " pages analysed.</p>"
+        + ai_html
         + "<h2 style='font-size:18px;margin-top:28px'>Checklist pass rates</h2><table>" + cats + "</table>"
         + "<h2 style='font-size:18px;margin-top:28px'>Per-page results</h2>" + "".join(rows)
         + "</body></html>")
@@ -584,17 +603,8 @@ def _estimate_perf_score(html: str) -> int:
     return max(0, min(100, score))
 
 
-def _gemini_optimize_suggestions(url: str, html: str):
-    """Use Gemini to produce page-specific performance/SEO suggestions.
-    Returns a list of {title, what, why, how} dicts, or [] if unavailable."""
-    prompt = (
-        "You are a senior web performance and SEO engineer. Analyse the HTML of the page below "
-        "and produce the most impactful, SPECIFIC optimisation suggestions for THIS page. "
-        "Reference concrete things you actually see (script/library names, image patterns, meta "
-        "tags, render-blocking resources, third-party widgets). Return ONLY a JSON array of 5 to 7 "
-        "objects, each with exactly these keys: title, what, why, how. No markdown, no text outside "
-        "the JSON.\n\nURL: " + url + "\n\nHTML (truncated):\n" + html[:12000]
-    )
+def _gemini_json_items(prompt: str):
+    """Send a prompt to Gemini and parse a JSON array of {title,what,why,how}."""
     raw = _gemini_generate(prompt)
     if not raw:
         return []
@@ -619,8 +629,39 @@ def _gemini_optimize_suggestions(url: str, html: str):
                 })
         return out
     except Exception as e:
-        log.warning("gemini suggestions parse failed: %s", e)
+        log.warning("gemini json parse failed: %s", e)
         return []
+
+
+def _gemini_optimize_suggestions(url: str, html: str):
+    """Gemini page-specific performance/SEO suggestions for the Optimizer."""
+    prompt = (
+        "You are a senior web performance and SEO engineer. Analyse the HTML of the page below "
+        "and produce the most impactful, SPECIFIC optimisation suggestions for THIS page. "
+        "Reference concrete things you actually see (script/library names, image patterns, meta "
+        "tags, render-blocking resources, third-party widgets). Return ONLY a JSON array of 5 to 7 "
+        "objects, each with exactly these keys: title, what, why, how. No markdown, no text outside "
+        "the JSON.\n\nURL: " + url + "\n\nHTML (truncated):\n" + html[:12000]
+    )
+    return _gemini_json_items(prompt)
+
+
+def _gemini_audit_analysis(url: str, pages: list):
+    """Gemini prioritised SEO action plan built from the audit findings."""
+    lines = []
+    for p in pages[:8]:
+        fails = [c["name"] for c in p["checks"] if not c["ok"]]
+        title = (p.get("title") or "")[:70]
+        lines.append("- %s (score %s) [%s] failing: %s" % (
+            p["url"], p["score"], title, ", ".join(fails) or "none"))
+    prompt = (
+        "You are a senior SEO consultant. Based on this multi-page website audit, write a "
+        "prioritised action plan of the 5 to 7 highest-impact fixes for THIS site. Be specific and "
+        "reference the actual pages/issues seen. Return ONLY a JSON array of objects with exactly "
+        "these keys: title, what, why, how. No markdown, no text outside the JSON.\n\n"
+        "SITE: " + url + "\n\nAUDIT FINDINGS:\n" + "\n".join(lines)
+    )
+    return _gemini_json_items(prompt)
 
 
 def _send_optimizer_email(to:str, result:dict, url:str):

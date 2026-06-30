@@ -93,6 +93,11 @@
         </div>
       </div>
 
+      <div class="glass hidden" id="aiBox" style="margin-bottom:18px;padding:0;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)">AI Recommendations <span style="font-size:11px;color:var(--faint)">tailored to this site (Gemini)</span></div>
+        <div id="aiList"></div>
+      </div>
+
       <h3 style="font-size:14px;color:var(--muted);margin-bottom:14px">Ship your report</h3>
       {% with accent='teal', dl_label='Download Report', dl_hint='Get the full HTML audit report with every page score and gap analysis.', folder_default='' %}
         {% include "_finish.html" %}
