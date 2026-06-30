@@ -704,17 +704,26 @@ def _gather_clone_content(req, mode: str) -> str:
 def _gemini_generate(prompt: str):
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
+        log.warning("gemini: GEMINI_API_KEY not set")
         return None
-    try:
-        import requests
-        endpoint = ("https://generativelanguage.googleapis.com/v1beta/models/"
-                    "gemini-2.0-flash:generateContent?key=" + key)
-        r = requests.post(endpoint, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=55)
-        data = r.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as e:
-        log.warning("gemini failed: %s", e)
-        return None
+    import requests
+    models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest", "gemini-pro"]
+    for model in models:
+        try:
+            endpoint = ("https://generativelanguage.googleapis.com/v1beta/models/"
+                        + model + ":generateContent?key=" + key)
+            r = requests.post(endpoint, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=50)
+            data = r.json()
+            if data.get("candidates"):
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            err = (data.get("error") or {}).get("message", "") or str(list(data.keys()))
+            log.warning("gemini model=%s http=%s err=%s", model, r.status_code, err[:240])
+            # Key/permission errors won't be fixed by another model name -> stop early.
+            if r.status_code in (400, 401, 403) and "model" not in err.lower() and "not found" not in err.lower():
+                break
+        except Exception as e:
+            log.warning("gemini model=%s exception: %s", model, e)
+    return None
 
 
 def _clone_with_gemini(ref_url: str, design_html: str, content: str):
