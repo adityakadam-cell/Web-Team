@@ -470,23 +470,29 @@ def _basic_optimize(html:str):
 
 def _pagespeed_score(url: str, strategy: str = "mobile") -> int:
     """Real Google PageSpeed Insights performance score (0-100).
-    Works without a key (rate-limited); uses PAGESPEED_API_KEY when set."""
-    try:
-        import requests
-        params = {"url": url, "strategy": strategy, "category": "performance"}
-        key = (os.getenv("PAGESPEED_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
-        if key:
-            params["key"] = key
-        r = requests.get(
-            "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
-            params=params, timeout=55,
-        )
-        data = r.json()
-        score = data["lighthouseResult"]["categories"]["performance"]["score"]
-        return int(round(score * 100))
-    except Exception as e:
-        log.warning("pagespeed failed (%s): %s", strategy, e)
-        return 0
+    Tries the configured key first; if it is rejected, falls back to a
+    keyless call (works, just rate-limited)."""
+    import requests
+    base = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
+    key = (os.getenv("PAGESPEED_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
+
+    attempts = []
+    if key:
+        attempts.append({"url": url, "strategy": strategy, "category": "performance", "key": key})
+    attempts.append({"url": url, "strategy": strategy, "category": "performance"})  # keyless fallback
+
+    for params in attempts:
+        try:
+            r = requests.get(base, params=params, timeout=55)
+            data = r.json()
+            if "lighthouseResult" in data:
+                score = data["lighthouseResult"]["categories"]["performance"]["score"]
+                return int(round(score * 100))
+            err = (data.get("error") or {}).get("message", "no lighthouseResult in response")
+            log.warning("pagespeed %s (keyed=%s): %s", strategy, "key" in params, err)
+        except Exception as e:
+            log.warning("pagespeed %s exception: %s", strategy, e)
+    return 0
 
 
 @app.route("/api/pagespeed")
