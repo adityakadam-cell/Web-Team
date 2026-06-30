@@ -526,6 +526,22 @@ def pagespeed_check():
     return jsonify({"url": url, "strategy": strategy, "score": _pagespeed_score(url, strategy)})
 
 
+@app.route("/api/optimize/suggest")
+def optimize_suggest():
+    """GET util — fetch a URL and return Gemini-powered optimization suggestions."""
+    url = (request.args.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url query param required"}), 400
+    if not url.startswith("http"):
+        url = "https://" + url
+    try:
+        import requests
+        html = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"}).text
+    except Exception as e:
+        return jsonify({"error": "could not fetch page: %s" % e}), 400
+    return jsonify({"url": url, "suggestions": _gemini_optimize_suggestions(url, html)})
+
+
 def _estimate_perf_score(html: str) -> int:
     """Rough performance-hygiene score (0-100) from the HTML, used when the live
     PageSpeed API is unavailable so the tool still returns a meaningful number."""
