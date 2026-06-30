@@ -489,6 +489,19 @@ def _pagespeed_score(url: str, strategy: str = "mobile") -> int:
         return 0
 
 
+@app.route("/api/pagespeed")
+def pagespeed_check():
+    """Lightweight GET — real Google PageSpeed performance score for a URL.
+    Example: /api/pagespeed?url=example.com&strategy=mobile"""
+    url = (request.args.get("url") or "").strip()
+    strategy = (request.args.get("strategy") or "mobile").strip()
+    if not url:
+        return jsonify({"error": "url query param required"}), 400
+    if not url.startswith("http"):
+        url = "https://" + url
+    return jsonify({"url": url, "strategy": strategy, "score": _pagespeed_score(url, strategy)})
+
+
 def _send_optimizer_email(to:str, result:dict, url:str):
     import smtplib
     from email.mime.text import MIMEText
