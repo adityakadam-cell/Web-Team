@@ -76,6 +76,90 @@ def audit_page():
 def optimizer_page():
     return render_template("optimizer.html", active="optimizer")
 
+@app.route("/optimizer-doc")
+def optimizer_doc_page():
+    return render_template_string(OPTIMIZER_DOC_PAGE, active="optimizer")
+
+
+OPTIMIZER_DOC_PAGE = """{% extends "base.html" %}
+{% block title %}Optimizer - Doc Changes{% endblock %}
+{% block content %}
+<div class="tool-page grid-overlay">
+  <div class="tool-glow indigo"></div>
+  <div class="tool-shell">
+    <a class="back-link" href="{{ url_for('optimizer_page') }}">&larr; Back to optimizer</a>
+    <div class="tool-head">
+      <h1 class="indigo">OPTIMIZER - DOC CHANGES</h1>
+      <p>Upload a website/project zip and a Google Doc of changes - AI applies them and returns a new zip.</p>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step-chip"><span class="num">1</span>Upload zip</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">2</span>Change doc</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">3</span>Apply</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">4</span>Download</div>
+    </div>
+    <section id="panel0">
+      <div class="glass">
+        <div class="upload" id="uploadZone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Click to upload your project / website .zip</p>
+          <p class="sub">HTML, CSS and JS files inside the zip</p>
+        </div>
+        <input type="file" id="zipInput" accept=".zip" class="hidden">
+        <div id="fileInfo" class="filerow hidden" style="margin-top:12px"></div>
+        <div id="fileErr" class="err hidden"></div>
+      </div>
+      <button class="btn indigo" id="toDocBtn" style="margin-top:20px" disabled>Next: Change document</button>
+    </section>
+    <section id="panel1" class="hidden">
+      <div class="glass" style="--fc:rgba(99,102,241,.5)">
+        <div class="field"><label class="lbl">Google Doc URL (shared as "anyone with the link")</label>
+          <div style="display:flex;gap:10px">
+            <input class="inp" id="docUrl" placeholder="https://docs.google.com/document/d/...">
+            <button class="btn ghost" id="fetchDocBtn" style="width:auto;white-space:nowrap">Fetch</button>
+          </div>
+          <div class="hint">Make the doc viewable to "anyone with the link", or paste the changes below instead.</div>
+        </div>
+        <div class="field"><label class="lbl">Changes to apply *</label>
+          <textarea class="inp" id="docText" placeholder="The changes from your document appear here after Fetch - or paste them directly."></textarea></div>
+        <div class="note">The AI edits only the files the changes reference, and reports which files it modified.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="backToUpload">Back</button>
+        <button class="btn indigo" id="applyBtn" disabled>Apply changes with AI</button>
+      </div>
+    </section>
+    <section id="panel2" class="hidden">
+      <div class="glass">
+        <div id="applyLoading" class="loading">
+          <div class="spinner indigo"><span class="base"></span><span class="arc"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <h3>Applying your changes</h3><p>The AI is editing the files...</p>
+        </div>
+        <div id="applyError" class="loading hidden">
+          <h3 class="bad">Could not apply changes</h3><p id="applyErrMsg" class="bad"></p>
+          <button class="btn ghost" id="applyRetry" style="margin:18px auto 0">Try again</button>
+        </div>
+      </div>
+    </section>
+    <section id="panel3" class="hidden">
+      <div class="glass" style="padding:0;overflow:hidden;margin-bottom:18px">
+        <div style="padding:15px 18px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)">Report - files changed by AI</div>
+        <div id="reportList"></div>
+      </div>
+      <button class="btn indigo" id="dlBtn">Download updated .zip</button>
+      <button class="btn ghost" id="newBtn" style="margin:16px auto 0;width:100%">Start over</button>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="{{ url_for('static', filename='js/finish.js') }}"></script>
+<script src="{{ url_for('static', filename='js/optdoc.js') }}"></script>
+{% endblock %}
+"""
+
 @app.route("/wp-report")
 def wp_report_page():
     # Rendered inline (not from a template file) to avoid a file-sync issue on this one page.
@@ -955,6 +1039,93 @@ def _gemini_customize_plugin(php: str, change_request: str) -> str:
     if not raw.lstrip().startswith("<?php"):
         raw = "<?php\n" + raw
     return raw
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DOC-DRIVEN HTML CHANGES (upload zip + Google Doc -> AI edits -> new zip)
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route("/api/html/doc")
+def html_doc():
+    url = (request.args.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "Google Doc URL is required"}), 400
+    text = _fetch_google_doc(url)
+    if text is None:
+        return jsonify({"error": "Could not read that Google Doc. Share it as 'anyone with the link', or paste the changes instead."}), 400
+    return jsonify({"text": text})
+
+
+def _fetch_google_doc(url: str):
+    import re, requests
+    m = re.search(r"/document/d/([a-zA-Z0-9-_]+)", url)
+    if not m:
+        return None
+    doc_id = m.group(1)
+    try:
+        export = "https://docs.google.com/document/d/" + doc_id + "/export?format=txt"
+        r = requests.get(export, timeout=20)
+        if r.status_code == 200 and r.text.strip():
+            return r.text[:20000]
+    except Exception as e:
+        log.warning("google doc fetch failed: %s", e)
+    return None
+
+
+@app.route("/api/html/apply", methods=["POST"])
+def html_apply():
+    data = request.get_json(force=True)
+    files = data.get("files") or []
+    instructions = (data.get("instructions") or "").strip()
+    if not files or not instructions:
+        return jsonify({"error": "Project files and change instructions are required"}), 400
+    changed = _gemini_apply_html_changes(files, instructions)
+    if changed is None:
+        return jsonify({"error": "The AI editor is busy right now. Please try again in a moment."}), 502
+    return jsonify({"changed": changed})
+
+
+def _gemini_apply_html_changes(files, instructions):
+    parts, total = [], 0
+    for f in files:
+        if not isinstance(f, dict):
+            continue
+        path = str(f.get("path", ""))
+        content = str(f.get("content", ""))
+        if not path:
+            continue
+        block = "=== " + path + " ===\n" + content + "\n\n"
+        if total + len(block) > 55000:
+            break
+        parts.append(block)
+        total += len(block)
+    prompt = (
+        "You are a senior web developer. Apply the requested changes to the project files below. "
+        "Edit only the files that the changes reference. Return ONLY a JSON array of the files you "
+        "CHANGED; each item is an object with keys \"path\" and \"content\" holding the COMPLETE new "
+        "file content. Do not include files you did not change. No markdown fences, no commentary.\n\n"
+        "REQUESTED CHANGES:\n" + instructions[:8000] + "\n\nPROJECT FILES:\n" + "".join(parts)
+    )
+    raw = _gemini_generate(prompt)
+    if not raw:
+        return None
+    import json, re
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = re.sub(r"^json\s*", "", raw, flags=re.I).strip()
+    m = re.search(r"\[.*\]", raw, re.S)
+    if m:
+        raw = m.group(0)
+    try:
+        items = json.loads(raw)
+        out = []
+        for it in items:
+            if isinstance(it, dict) and it.get("path") and "content" in it:
+                out.append({"path": str(it["path"]), "content": str(it["content"])})
+        return out
+    except Exception as e:
+        log.warning("html apply parse failed: %s", e)
+        return []
 
 
 def _send_optimizer_email(to:str, result:dict, url:str):
