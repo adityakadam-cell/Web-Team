@@ -667,55 +667,62 @@ def optimize():
     if not url or not html:
         return jsonify({"error":"url and html are required"}), 400
 
-    scores_estimated = False
-    score_note = ""
-    ai_suggestions = False
     try:
-        # Try to use existing optimizer module
-        opt_path = Path(__file__).parent.parent / "optimizer-app" / "optimizer-wizard-main"
-        import sys
-        sys.path.insert(0, str(opt_path))
-        try:
-            from optimizer   import HTMLOptimizer
-            from pagespeed   import PageSpeedClient
+        # Deterministic, layout-safe transforms (always complete) as the safety net
+        rule_html, rule_applied = _rule_optimize(html)
 
-            optimizer = HTMLOptimizer(html)
-            optimized = optimizer.optimize()
-            auto_count = optimizer.fix_count
+        # Run the two live PageSpeed calls + the AI rewrite concurrently so the
+        # whole request stays comfortably inside the serverless time budget.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            f_m  = ex.submit(_pagespeed_score, url, "mobile")
+            f_d  = ex.submit(_pagespeed_score, url, "desktop")
+            f_ai = ex.submit(_gemini_optimize_html, url, html)
+            mobile_score  = f_m.result()
+            desktop_score = f_d.result()
+            ai = f_ai.result()
 
-            ps = PageSpeedClient(api_key=os.getenv("PAGESPEED_API_KEY",""))
-            mobile_score  = ps.score(url, strategy="mobile")
-            desktop_score = ps.score(url, strategy="desktop")
-            manual_fixes  = optimizer.manual_fixes()
-        except ImportError:
-            # Standalone path (Vercel/Railway): basic HTML fixes + REAL PageSpeed scores
-            optimized, auto_count, manual_fixes = _basic_optimize(html)
-            mobile_score  = _pagespeed_score(url, "mobile")
-            desktop_score = _pagespeed_score(url, "desktop")
-            # Gemini-powered page-specific suggestions (replaces the generic checklist when available)
-            ai_fixes = _gemini_optimize_suggestions(url, html)
-            if ai_fixes:
-                manual_fixes = ai_fixes
-                ai_suggestions = True
-            if not mobile_score and not desktop_score:
-                # PageSpeed unavailable (API not enabled / quota) -> estimate from HTML
-                est = _estimate_perf_score(html)
-                mobile_score, desktop_score = est, min(100, est + 8)
-                scores_estimated = True
-                score_note = ("Estimated from page HTML - enable the PageSpeed Insights API "
-                              "on your Google key for live Lighthouse scores.")
+        optimized    = rule_html
+        auto_applied = rule_applied
+        manual_todo  = _manual_server_todo()
+        ai_used      = False
+
+        if ai:
+            if ai.get("autoApplied"):
+                auto_applied = ai["autoApplied"]; ai_used = True
+            ai_opt = ai.get("optimizedHtml")
+            # Only trust the AI HTML if it looks complete (guards truncation) so
+            # we never ship a page whose layout/design has been altered or cut.
+            if isinstance(ai_opt, str) and len(ai_opt) >= int(len(html) * 0.6):
+                optimized = ai_opt; ai_used = True
+            if ai.get("manualTodo"):
+                seen, merged = set(), []
+                for m in ai["manualTodo"] + manual_todo:
+                    t = (m.get("title") or "").strip().lower()
+                    if t and t not in seen:
+                        seen.add(t); merged.append(m)
+                manual_todo = merged[:12]
+
+        scores_estimated = False
+        score_note = ""
+        if not mobile_score and not desktop_score:
+            est = _estimate_perf_score(html)
+            mobile_score, desktop_score = est, min(100, est + 8)
+            scores_estimated = True
+            score_note = ("Estimated from page HTML - enable the PageSpeed Insights API "
+                          "on your Google key for live Lighthouse scores.")
 
         result = {
-            "scores":         {"mobile": mobile_score, "desktop": desktop_score},
+            "scores":          {"mobile": mobile_score, "desktop": desktop_score},
             "scoresEstimated": scores_estimated,
-            "scoreNote":      score_note,
-            "aiSuggestions":  ai_suggestions,
-            "autoFixCount":   auto_count,
-            "fixes":          [{"title":f["title"],"what":f.get("what",""),"why":f.get("why",""),"how":f.get("how","")} for f in manual_fixes[:8]],
-            "optimizedHtml":  optimized,
+            "scoreNote":       score_note,
+            "aiApplied":       ai_used,
+            "autoFixCount":    len(auto_applied),
+            "autoApplied":     auto_applied,   # [{category,title,detail}] changes made to the HTML
+            "manualTodo":      manual_todo,    # [{category,title,what,why,how}] server/asset to-dos
+            "optimizedHtml":   optimized,
         }
 
-        # Email if requested
         if email_to:
             try:
                 _send_optimizer_email(email_to, result, url)
@@ -729,38 +736,205 @@ def optimize():
         return jsonify({"error": str(e)}), 500
 
 
-def _basic_optimize(html:str):
-    """Minimal HTML optimiser when optimizer module not available."""
+def _rule_optimize(html: str):
+    """Deterministic, LAYOUT-SAFE HTML performance transforms. The output must
+    render visually identical to the input - only non-visual perf hints are
+    added. Returns (optimized_html, auto_applied[]) where each item is
+    {category, title, detail}."""
     import re
     out = html
-    count = 0
+    applied = []
+    def add(cat, title, detail): applied.append({"category": cat, "title": title, "detail": detail})
 
-    # Add loading=lazy to non-hero images
-    def lazy_img(m):
-        nonlocal count
-        if "fetchpriority" not in m.group(0) and "loading=" not in m.group(0):
-            count += 1
-            return m.group(0).replace("<img", '<img loading="lazy"', 1)
-        return m.group(0)
-    out = re.sub(r"<img\b[^>]*>", lazy_img, out)
+    # ---- Images: hero gets fetchpriority; the rest get lazy + async decode ----
+    state = {"first": False, "lazy": 0}
+    def img_rewrite(m):
+        tag = m.group(0); low = tag.lower()
+        if not state["first"]:
+            state["first"] = True
+            new = tag
+            if "fetchpriority" not in low:
+                new = new.replace("<img", '<img fetchpriority="high"', 1)
+            if "decoding" not in new.lower():
+                new = new.replace("<img", '<img decoding="async"', 1)
+            return new
+        new = tag
+        if "loading=" not in low:
+            new = new.replace("<img", '<img loading="lazy"', 1); state["lazy"] += 1
+        if "decoding" not in new.lower():
+            new = new.replace("<img", '<img decoding="async"', 1)
+        return new
+    out = re.sub(r"<img\b[^>]*>", img_rewrite, out, flags=re.I)
+    if state["lazy"]:
+        add("Image", "Lazy-loaded below-the-fold images",
+            'Added loading="lazy" + decoding="async" to %d image(s) so they load only when scrolled near.' % state["lazy"])
 
-    # Defer non-essential scripts
-    def defer_script(m):
-        nonlocal count
-        tag = m.group(0)
-        if "defer" not in tag and "async" not in tag and "src=" in tag:
-            count += 1
-            return tag.replace("<script", '<script defer', 1)
+    mimg = re.search(r'<img\b[^>]*\bsrc=["\']([^"\']+)["\']', html, re.I)
+    if mimg and re.search(r"</head>", out, re.I) and 'rel="preload" as="image"' not in out:
+        preload = '<link rel="preload" as="image" href="%s" fetchpriority="high">' % mimg.group(1)
+        out = re.sub(r"</head>", preload + "\n</head>", out, count=1, flags=re.I)
+        add("Image", "Preloaded the LCP / hero image",
+            "Added <link rel=preload as=image> + fetchpriority=high on the first image to speed up Largest Contentful Paint.")
+
+    # ---- Fonts ----
+    if re.search(r"fonts\.googleapis\.com", out, re.I):
+        def gf(m):
+            u = m.group(0)
+            if "display=" in u:
+                return u
+            return u + ("&" if "?" in u else "?") + "display=swap"
+        before = out
+        out = re.sub(r'https://fonts\.googleapis\.com/css2?[^"\'\s>]*', gf, out)
+        if out != before:
+            add("Font", "Enabled font-display: swap on Google Fonts",
+                "Appended display=swap so text stays visible while web fonts load (removes invisible-text / FOIT).")
+        if "rel=\"preconnect\"" not in out.lower() or "fonts.gstatic.com" not in out.lower():
+            pre = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
+                   '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
+            if re.search(r"<head[^>]*>", out, re.I):
+                out = re.sub(r"(<head[^>]*>)", r"\1\n" + pre, out, count=1, flags=re.I)
+                add("Font", "Preconnected to Google Fonts origins",
+                    "Added preconnect to fonts.googleapis.com and fonts.gstatic.com to cut DNS/TLS setup time.")
+
+    def face(m):
+        blk = m.group(0)
+        if "font-display" in blk.lower():
+            return blk
+        return blk.replace("{", "{font-display:swap;", 1)
+    before = out
+    out = re.sub(r"@font-face\s*\{[^}]*\}", face, out, flags=re.I)
+    if out != before:
+        add("Font", "Added font-display: swap to @font-face", "Custom fonts no longer block text rendering.")
+
+    # ---- CSS: minify inline <style> (whitespace/comments only) ----
+    def minify_css(m):
+        css = m.group(1)
+        c = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        c = re.sub(r"\s+", " ", c)
+        c = re.sub(r"\s*([:;{},>])\s*", r"\1", c).strip()
+        return m.group(0).replace(css, c)
+    before = out
+    out = re.sub(r"<style[^>]*>(.*?)</style>", minify_css, out, flags=re.I | re.S)
+    if out != before:
+        add("CSS", "Minified inline CSS",
+            "Stripped comments and collapsed whitespace in inline <style> blocks. Every rule is preserved, so layout is unchanged.")
+
+    # ---- JS: defer render-blocking external scripts ----
+    state2 = {"n": 0}
+    def defer(m):
+        tag = m.group(0); low = tag.lower()
+        if "src=" in low and "defer" not in low and "async" not in low and 'type="module"' not in low:
+            state2["n"] += 1
+            return tag.replace("<script", "<script defer", 1)
         return tag
-    out = re.sub(r"<script\b[^>]*src=[^>]+>", defer_script, out)
+    out = re.sub(r"<script\b[^>]*>", defer, out, flags=re.I)
+    if state2["n"]:
+        add("JS", "Deferred render-blocking scripts",
+            "Added defer to %d external script(s) that had no async/defer, so they no longer block first paint (execution order preserved)." % state2["n"])
 
-    fixes = [
-        {"title":"Enable gzip/brotli","what":"Compress server responses","why":"Reduces transfer size by ~70%","how":"Enable in nginx: gzip on; gzip_types text/html text/css application/javascript;"},
-        {"title":"Set cache headers","what":"Cache static assets for 1 year","why":"Eliminates repeat downloads","how":"Cache-Control: public, max-age=31536000, immutable for CSS/JS/images"},
-        {"title":"Add a CDN","what":"Serve assets from edge nodes","why":"Reduces TTFB globally","how":"Cloudflare free tier: change nameservers, enable proxy mode on DNS records"},
-        {"title":"Minify CSS & JS","what":"Remove whitespace/comments","why":"Reduces file size ~30%","how":"Use Vite, Webpack, or Parcel in production build"},
+    return out, applied
+
+
+def _manual_server_todo():
+    """Optimizations that need the server, host, or an asset pipeline and cannot
+    be safely applied by editing the page HTML. Grouped to mirror the Airlift
+    image / font / CSS / JS criteria."""
+    return [
+        {"category": "Image", "title": "Convert images to WebP / AVIF",
+         "what": "Serve next-gen formats via <picture> or your CDN.",
+         "why": "WebP/AVIF are 25-50% smaller than JPEG/PNG at the same quality.",
+         "how": "Use cwebp/squoosh, or a CDN (Cloudflare Images, Imgix) that auto-negotiates format by the Accept header."},
+        {"category": "Image", "title": "Serve responsive image sizes (srcset)",
+         "what": "Generate several widths and let the browser choose.",
+         "why": "Stops phones downloading desktop-sized images.",
+         "how": "Add srcset/sizes backed by real resized files, or resize on the fly via CDN query params."},
+        {"category": "Font", "title": "Self-host + subset fonts as WOFF2",
+         "what": "Convert fonts to WOFF2 and drop unused glyphs.",
+         "why": "WOFF2 + subsetting can cut font weight 60-90%.",
+         "how": "Subset with glyphhanger/fonttools, serve WOFF2 with long cache headers."},
+        {"category": "CSS", "title": "Inline critical CSS, defer the rest",
+         "what": "Ship only above-the-fold CSS inline; load the remainder async.",
+         "why": "Removes render-blocking CSS and speeds first paint.",
+         "how": "Extract with critical/penthouse, then load the full stylesheet via rel=preload + onload."},
+        {"category": "JS", "title": "Minify & bundle JavaScript in a build",
+         "what": "Compress and combine scripts for production.",
+         "why": "Fewer requests and ~30-60% smaller JS.",
+         "how": "Use Vite/esbuild/Webpack with tree-shaking and minification enabled."},
+        {"category": "Server", "title": "Enable gzip or brotli compression",
+         "what": "Compress text responses (HTML/CSS/JS).",
+         "why": "Cuts transfer size by roughly 70%.",
+         "how": "nginx: gzip on; (or brotli on;) for text/html, text/css, application/javascript."},
+        {"category": "Server", "title": "Set long-lived cache headers",
+         "what": "Cache hashed static assets for a year.",
+         "why": "Eliminates repeat downloads for return visits.",
+         "how": "Cache-Control: public, max-age=31536000, immutable on fingerprinted CSS/JS/images."},
+        {"category": "Server", "title": "Put the site behind a CDN + HTTP/2/3",
+         "what": "Serve assets from edge locations over a modern protocol.",
+         "why": "Lowers TTFB and latency worldwide and multiplexes requests.",
+         "how": "Cloudflare free tier: point nameservers, enable proxy, HTTP/3 and auto-minify."},
     ]
-    return out, count, fixes
+
+
+def _gemini_optimize_html(url: str, html: str):
+    """Ask the model to apply LAYOUT-SAFE performance optimizations to the page
+    and describe them. Returns {optimizedHtml|None, autoApplied[], manualTodo[]}
+    or None on hard failure (caller then relies on the rule-based result)."""
+    src = html[:45000]
+    prompt = (
+        "You are a senior web-performance engineer. Optimize the HTML document below for Core Web "
+        "Vitals / Google PageSpeed WITHOUT changing how the page looks or lays out - the optimized "
+        "page MUST render visually identical to the original.\n"
+        "Apply ONLY these layout-safe changes where applicable:\n"
+        "- Images: add loading=\"lazy\" and decoding=\"async\" to below-the-fold <img> (never the first / "
+        "hero image); add fetchpriority=\"high\" to the hero image plus a matching "
+        "<link rel=\"preload\" as=\"image\">.\n"
+        "- Fonts: add font-display:swap to @font-face and display=swap to Google Fonts URLs; add "
+        "<link rel=\"preconnect\"> for fonts.googleapis.com and fonts.gstatic.com when Google Fonts are used.\n"
+        "- CSS: minify the contents of inline <style> blocks (whitespace/comments only - keep every rule).\n"
+        "- JS: add defer to render-blocking external <script src> that have no async/defer; do not rewrite "
+        "or remove any script logic.\n"
+        "Do NOT remove elements, reorder visible content, change class names, inline-strip critical CSS, or "
+        "alter any rule that affects layout. Keep the FULL document intact.\n"
+        "Return ONLY minified JSON with keys: optimizedHtml (string - the FULL optimized document), "
+        "autoApplied (array of {category,title,detail} for each change you made; category is one of "
+        "Image/Font/CSS/JS), manualTodo (array of {category,title,what,why,how} for changes that need the "
+        "server or an asset pipeline and cannot be done in HTML - e.g. WebP/AVIF conversion, responsive image "
+        "files, WOFF2 subsetting, critical CSS, gzip/brotli, cache headers, CDN). No markdown, no prose "
+        "outside the JSON.\n\nURL: " + url + "\nHTML:\n" + src
+    )
+    raw = _gemini_generate(prompt)
+    if not raw:
+        return None
+    import json, re
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = re.sub(r"^json\s*", "", raw, flags=re.I).strip()
+    m = re.search(r"\{.*\}", raw, re.S)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+    except Exception as e:
+        log.warning("optimize html parse failed: %s", e)
+        return None
+    opt = obj.get("optimizedHtml")
+    if not isinstance(opt, str) or len(opt) < 200:
+        opt = None
+    aa = []
+    for it in (obj.get("autoApplied") or [])[:20]:
+        if isinstance(it, dict) and it.get("title"):
+            aa.append({"category": str(it.get("category", "General"))[:20],
+                       "title": str(it.get("title", ""))[:140],
+                       "detail": str(it.get("detail", ""))[:400]})
+    mt = []
+    for it in (obj.get("manualTodo") or [])[:14]:
+        if isinstance(it, dict) and it.get("title"):
+            mt.append({"category": str(it.get("category", "Server"))[:20],
+                       "title": str(it.get("title", ""))[:140],
+                       "what": str(it.get("what", "")), "why": str(it.get("why", "")),
+                       "how": str(it.get("how", ""))})
+    return {"optimizedHtml": opt, "autoApplied": aa, "manualTodo": mt}
 
 
 def _pagespeed_score(url: str, strategy: str = "mobile") -> int:

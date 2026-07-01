@@ -83,10 +83,10 @@
       </div>
     </section>
 
-    <!-- STEP 3: Scores + fixes -->
+    <!-- STEP 3: Scores + two reports -->
     <section id="panel3" class="hidden">
       <div class="note hidden" id="scoreNote" style="margin-bottom:14px"></div>
-      <div class="score-cards" style="margin-bottom:16px">
+      <div class="score-cards" style="margin-bottom:18px">
         <div class="glass" style="text-align:center;padding:24px">
           <div class="lbl" style="margin-bottom:10px">Mobile</div>
           <div class="score-big" id="mScore">0</div><div id="mLabel" style="font-size:12px"></div>
@@ -96,12 +96,32 @@
           <div class="score-big" id="dScore">0</div><div id="dLabel" style="font-size:12px"></div>
         </div>
       </div>
-      <div class="glass" style="margin-bottom:16px;display:flex;align-items:center;gap:10px">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span style="font-size:14px"><b id="fixCount">0</b> auto-fixes applied to your HTML</span>
+
+      <!-- REPORT 1: auto-applied optimizations -->
+      <div class="glass" style="padding:0;overflow:hidden;margin-bottom:18px">
+        <div class="rep-head">
+          <div>
+            <div class="rep-title"><span class="rep-dot ok"></span> Report 1 · Auto-Applied Optimizations</div>
+            <div class="rep-sub"><b id="autoCount">0</b> layout-safe changes applied to your HTML<span id="aiTag" class="ai-tag hidden">AI-tailored</span></div>
+          </div>
+          <button class="btn ghost mini" id="dlAutoReport">Download report</button>
+        </div>
+        <div id="autoList"></div>
       </div>
-      <div class="glass" id="fixList" style="padding:0;overflow:hidden;margin-bottom:18px"></div>
-      <button class="btn indigo" id="toShipBtn">Get Optimized HTML</button>
+
+      <!-- REPORT 2: manual to-do -->
+      <div class="glass" style="padding:0;overflow:hidden;margin-bottom:18px">
+        <div class="rep-head">
+          <div>
+            <div class="rep-title"><span class="rep-dot todo"></span> Report 2 · Manual To-Do (server &amp; assets)</div>
+            <div class="rep-sub">Changes to apply on your host / build — code can't do these for you</div>
+          </div>
+          <button class="btn ghost mini" id="dlManualReport">Download report</button>
+        </div>
+        <div id="manualList"></div>
+      </div>
+
+      <button class="btn indigo" id="toShipBtn">Get Optimized HTML &rarr;</button>
     </section>
 
     <!-- STEP 4: Ship -->
