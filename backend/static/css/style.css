@@ -216,6 +216,8 @@ main{position:relative;z-index:1}
 .step-chip.active.emerald{border-color:var(--emerald);color:#34d399}
 .step-chip.done{color:#fff;border-color:transparent}
 .step-chip.done.teal{background:var(--teal)}.step-chip.done.indigo{background:var(--indigo)}.step-chip.done.emerald{background:var(--emerald)}
+.step-chip.active.amber{border-color:var(--amber);color:#fcd34d}
+.step-chip.done.amber{background:var(--amber)}
 .step-sep{width:22px;height:1px;background:var(--line)}
 
 /* cards / inputs */
@@ -275,9 +277,9 @@ textarea.inp{resize:vertical;min-height:160px;line-height:1.6;font-size:13px}
 .spinner{position:relative;width:80px;height:80px;margin:0 auto 24px}
 .spinner .base{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.12)}
 .spinner .arc{position:absolute;inset:0;border-radius:50%;border:2px solid;border-top-color:transparent!important;animation:spin 1s linear infinite}
-.spinner.teal .arc{border-color:var(--teal)}.spinner.indigo .arc{border-color:var(--indigo)}.spinner.emerald .arc{border-color:var(--emerald)}
+.spinner.teal .arc{border-color:var(--teal)}.spinner.indigo .arc{border-color:var(--indigo)}.spinner.emerald .arc{border-color:var(--emerald)}.spinner.amber .arc{border-color:var(--amber)}
 .spinner svg{position:absolute;inset:0;margin:auto;width:28px;height:28px}
-.spinner.teal svg{color:#2dd4bf}.spinner.indigo svg{color:#a5b4fc}.spinner.emerald svg{color:#34d399}
+.spinner.teal svg{color:#2dd4bf}.spinner.indigo svg{color:#a5b4fc}.spinner.emerald svg{color:#34d399}.spinner.amber svg{color:#fbbf24}
 .loading h3{font-size:18px;font-weight:600;margin-bottom:6px}
 .loading p{color:var(--faint);font-size:13px}
 .progress{width:100%;height:6px;background:rgba(255,255,255,.06);border-radius:9999px;overflow:hidden;margin-top:20px}
