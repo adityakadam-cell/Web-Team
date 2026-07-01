@@ -940,13 +940,14 @@ def _gemini_generate(prompt: str):
         log.warning("gemini: GEMINI_API_KEY not set")
         return None
     import requests
-    # Only known-good models, short per-call timeout so the whole request stays
-    # well under the 60s serverless limit (avoids 504 timeouts on slow/hung calls).
-    for model in ("gemini-2.0-flash", "gemini-2.5-flash"):
+    # 2.5-flash is the currently-working model -> try it first with a generous timeout
+    # (real generations take 15-35s). 2.0-flash is the fallback and 429s instantly when
+    # its quota is used up, so the total stays well under the 60s serverless limit.
+    for model, to in (("gemini-2.5-flash", 45), ("gemini-2.0-flash", 12)):
         try:
             endpoint = ("https://generativelanguage.googleapis.com/v1beta/models/"
                         + model + ":generateContent?key=" + key)
-            r = requests.post(endpoint, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=22)
+            r = requests.post(endpoint, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=to)
             data = r.json()
             if data.get("candidates"):
                 return data["candidates"][0]["content"]["parts"][0]["text"]
