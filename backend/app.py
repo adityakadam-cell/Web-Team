@@ -918,11 +918,15 @@ def _plugin_readme(name: str, description: str) -> str:
     )
 
 
-@app.route("/api/wp/customize", methods=["POST"])
+@app.route("/api/wp/customize", methods=["GET", "POST"])
 def wp_customize():
-    data = request.get_json(force=True)
-    php = (data.get("php") or "").strip()
-    change = (data.get("request") or "").strip()
+    if request.method == "POST":
+        data = request.get_json(force=True)
+        php = (data.get("php") or "").strip()
+        change = (data.get("request") or "").strip()
+    else:
+        php = (request.args.get("php") or "").strip()
+        change = (request.args.get("request") or "").strip()
     if not php or not change:
         return jsonify({"error": "Plugin code and a change request are required"}), 400
     modified = _gemini_customize_plugin(php, change)
