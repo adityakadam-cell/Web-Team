@@ -76,6 +76,10 @@ def audit_page():
 def optimizer_page():
     return render_template("optimizer.html", active="optimizer")
 
+@app.route("/wp-report")
+def wp_report_page():
+    return render_template("wp-report.html", active="wp")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AUDIT WIZARD
