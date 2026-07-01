@@ -89,9 +89,12 @@ WP_PAGE = """{% extends "base.html" %}
   <div class="tool-glow" style="background:#f59e0b"></div>
   <div class="tool-shell">
     <a class="back-link" href="{{ url_for('home') }}">&larr; Back to terminal</a>
-    <div class="tool-head">
-      <h1 style="color:#fff">WP - PLUGIN GENERATOR</h1>
-      <p>Describe a requirement and generate a ready-to-install WordPress plugin.</p>
+    <div class="tool-head" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <h1 style="color:#fff">WP - PLUGIN GENERATOR</h1>
+        <p>Describe a requirement and generate a ready-to-install WordPress plugin.</p>
+      </div>
+      <a class="btn ghost" href="{{ url_for('wp_customize_page') }}" style="width:auto;white-space:nowrap;border-color:rgba(245,158,11,.55);color:#fcd34d">Customize a plugin &rarr;</a>
     </div>
     <div class="steps" id="steps">
       <div class="step-chip"><span class="num">1</span>Describe</div><div class="step-sep"></div>
@@ -144,6 +147,86 @@ WP_PAGE = """{% extends "base.html" %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="{{ url_for('static', filename='js/finish.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wp.js') }}"></script>
+{% endblock %}
+"""
+
+
+@app.route("/wp-customize")
+def wp_customize_page():
+    return render_template_string(WP_CUSTOMIZE_PAGE, active="wp")
+
+
+WP_CUSTOMIZE_PAGE = """{% extends "base.html" %}
+{% block title %}WP - Customize Plugin{% endblock %}
+{% block content %}
+<div class="tool-page grid-overlay">
+  <div class="tool-glow" style="background:#f59e0b"></div>
+  <div class="tool-shell">
+    <a class="back-link" href="{{ url_for('wp_report_page') }}">&larr; Back to generator</a>
+    <div class="tool-head">
+      <h1 style="color:#fff">WP - CUSTOMIZE PLUGIN</h1>
+      <p>Upload an existing plugin, describe the changes, and let AI rewrite it for you.</p>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step-chip"><span class="num">1</span>Upload</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">2</span>Changes</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">3</span>Download</div>
+    </div>
+    <section id="panel0">
+      <div class="glass">
+        <div class="upload" id="uploadZone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Click to upload your plugin .zip</p>
+          <p class="sub">the WordPress plugin zip you want to modify</p>
+        </div>
+        <input type="file" id="zipInput" accept=".zip" class="hidden">
+        <div id="fileInfo" class="filerow hidden" style="margin-top:12px"></div>
+        <div id="fileErr" class="err hidden"></div>
+      </div>
+      <button class="btn amber" id="toChangesBtn" style="margin-top:20px" disabled>Next: Describe changes</button>
+    </section>
+    <section id="panel1" class="hidden">
+      <div class="glass" style="--fc:rgba(245,158,11,.5)">
+        <div class="field"><label class="lbl">What should change? *</label>
+          <textarea class="inp" id="changeText" placeholder="Describe the changes in plain language. e.g. Add an admin settings page to change the message; add a countdown timer; let editors bypass the restriction."></textarea></div>
+        <div class="note">The AI rewrites the plugin's main PHP file. Review and test on a staging site before using on a live WordPress.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="backToUpload">Back</button>
+        <button class="btn amber" id="custBtn" disabled>Customize with AI</button>
+      </div>
+    </section>
+    <section id="panel2" class="hidden">
+      <div class="glass">
+        <div id="custLoading" class="loading">
+          <div class="spinner amber"><span class="base"></span><span class="arc"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></div>
+          <h3>Customizing your plugin</h3><p>The AI is rewriting the PHP...</p>
+        </div>
+        <div id="custError" class="loading hidden">
+          <h3 class="bad">Customization failed</h3><p id="custErrMsg" class="bad"></p>
+          <button class="btn ghost" id="custRetry" style="margin:18px auto 0">Try again</button>
+        </div>
+      </div>
+    </section>
+    <section id="panel3" class="hidden">
+      <div class="terminal" style="margin-bottom:18px">
+        <div class="terminal-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="ttitle" id="custFileName">plugin.php</span></div>
+        <pre class="code-view" id="custPreview"></pre>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="copyBtn">Copy PHP</button>
+        <button class="btn amber" id="dlBtn">Download .zip</button>
+      </div>
+      <button class="btn ghost" id="newBtn" style="margin:16px auto 0;width:100%">Customize another</button>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="{{ url_for('static', filename='js/finish.js') }}"></script>
+<script src="{{ url_for('static', filename='js/wpcustom.js') }}"></script>
 {% endblock %}
 """
 
@@ -833,6 +916,41 @@ def _plugin_readme(name: str, description: str) -> str:
         "2. Click Install Now, then Activate.\n\n"
         "Generated by web-team. Review and test on a staging site before production use.\n"
     )
+
+
+@app.route("/api/wp/customize", methods=["POST"])
+def wp_customize():
+    data = request.get_json(force=True)
+    php = (data.get("php") or "").strip()
+    change = (data.get("request") or "").strip()
+    if not php or not change:
+        return jsonify({"error": "Plugin code and a change request are required"}), 400
+    modified = _gemini_customize_plugin(php, change)
+    if not modified:
+        return jsonify({"error": "Customization is busy right now. Please try again in a moment."}), 502
+    return jsonify({"php": modified})
+
+
+def _gemini_customize_plugin(php: str, change_request: str) -> str:
+    prompt = (
+        "You are a senior WordPress plugin developer. Below is an existing WordPress plugin's main PHP "
+        "file. Apply the requested change and return the COMPLETE modified plugin PHP. Keep the plugin "
+        "header, preserve existing functionality unless the change says otherwise, and follow WordPress "
+        "best practices (ABSPATH guard, sanitize input, escape output, nonces + capability checks). "
+        "Output ONLY the raw PHP code, no markdown fences, no commentary.\n\n"
+        "CHANGE REQUESTED:\n" + change_request + "\n\nCURRENT PLUGIN PHP:\n" + php[:14000]
+    )
+    raw = _gemini_generate(prompt)
+    if not raw:
+        return ""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        import re as _re
+        raw = _re.sub(r"^php\s*", "", raw, flags=_re.I).strip()
+    if not raw.lstrip().startswith("<?php"):
+        raw = "<?php\n" + raw
+    return raw
 
 
 def _send_optimizer_email(to:str, result:dict, url:str):
