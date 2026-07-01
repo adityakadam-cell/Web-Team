@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, request, Response, stream_with_context, send_from_directory, send_file, render_template
+from flask import Flask, jsonify, request, Response, stream_with_context, send_from_directory, send_file, render_template, render_template_string
 from flask_cors import CORS
 
 try:
@@ -78,7 +78,69 @@ def optimizer_page():
 
 @app.route("/wp-report")
 def wp_report_page():
-    return render_template("wp-report.html", active="wp")
+    # Rendered inline (not from a template file) to avoid a file-sync issue on this one page.
+    return render_template_string(WP_PAGE, active="wp")
+
+
+WP_PAGE = """{% extends "base.html" %}
+{% block title %}WP - Plugin Generator{% endblock %}
+{% block content %}
+<div class="tool-page grid-overlay">
+  <div class="tool-glow" style="background:#f59e0b"></div>
+  <div class="tool-shell">
+    <a class="back-link" href="{{ url_for('home') }}">&larr; Back to terminal</a>
+    <div class="tool-head">
+      <h1 style="color:#fcd34d;text-shadow:0 0 20px rgba(245,158,11,.5)">WP - PLUGIN GENERATOR</h1>
+      <p>Describe a requirement and generate a ready-to-install WordPress plugin (Gemini).</p>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step-chip"><span class="num">1</span>Describe</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">2</span>Generate</div><div class="step-sep"></div>
+      <div class="step-chip"><span class="num">3</span>Download</div>
+    </div>
+    <section id="panel0">
+      <div class="glass" style="--fc:rgba(245,158,11,.5)">
+        <div class="field"><label class="lbl">Plugin Name *</label>
+          <input class="inp" id="pname" placeholder="e.g. Speed Boost Optimizer"></div>
+        <div class="field"><label class="lbl">What should the plugin do? *</label>
+          <textarea class="inp" id="pdesc" placeholder="Describe the requirement in plain language. e.g. Lazy-load images, defer non-critical scripts, disable WP emojis, add Open Graph tags, with an admin settings page to toggle each."></textarea></div>
+        <div class="note">Generated plugins are a fast first draft - review and test on a staging site before using on a live WordPress.</div>
+      </div>
+      <button class="btn amber" id="genBtn" style="margin-top:20px" disabled>Generate Plugin</button>
+    </section>
+    <section id="panel1" class="hidden">
+      <div class="glass">
+        <div id="genLoading" class="loading">
+          <div class="spinner amber"><span class="base"></span><span class="arc"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></div>
+          <h3>Generating your plugin</h3><p>Gemini is writing the PHP...</p>
+        </div>
+        <div id="genError" class="loading hidden">
+          <h3 class="bad">Generation failed</h3><p id="genErrMsg" class="bad"></p>
+          <button class="btn ghost" id="genRetry" style="margin:18px auto 0">Try again</button>
+        </div>
+      </div>
+    </section>
+    <section id="panel2" class="hidden">
+      <div class="terminal" style="margin-bottom:18px">
+        <div class="terminal-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="ttitle" id="fileName">plugin.php</span></div>
+        <pre class="code-view" id="codePreview"></pre>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="copyBtn">Copy PHP</button>
+        <button class="btn amber" id="dlBtn">Download .zip</button>
+      </div>
+      <button class="btn ghost" id="newBtn" style="margin:16px auto 0;width:100%">Generate another</button>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="{{ url_for('static', filename='js/finish.js') }}"></script>
+<script src="{{ url_for('static', filename='js/wp.js') }}"></script>
+{% endblock %}
+"""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
