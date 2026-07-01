@@ -61,7 +61,10 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: pname.value.trim(), description: pdesc.value.trim() }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); }
+      catch (_) { throw new Error(res.status === 504 ? 'The generator timed out - the AI service is busy. Please try again in a moment.' : 'The generator is busy right now - please try again in a moment.'); }
       if (!res.ok) throw new Error(data.error || 'Generation failed');
       result = data;
       document.getElementById('fileName').textContent = data.slug + '.php';

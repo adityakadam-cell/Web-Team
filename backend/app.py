@@ -940,20 +940,18 @@ def _gemini_generate(prompt: str):
         log.warning("gemini: GEMINI_API_KEY not set")
         return None
     import requests
-    models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest", "gemini-pro"]
-    for model in models:
+    # Only known-good models, short per-call timeout so the whole request stays
+    # well under the 60s serverless limit (avoids 504 timeouts on slow/hung calls).
+    for model in ("gemini-2.0-flash", "gemini-2.5-flash"):
         try:
             endpoint = ("https://generativelanguage.googleapis.com/v1beta/models/"
                         + model + ":generateContent?key=" + key)
-            r = requests.post(endpoint, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=50)
+            r = requests.post(endpoint, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=22)
             data = r.json()
             if data.get("candidates"):
                 return data["candidates"][0]["content"]["parts"][0]["text"]
             err = (data.get("error") or {}).get("message", "") or str(list(data.keys()))
-            log.warning("gemini model=%s http=%s err=%s", model, r.status_code, err[:240])
-            # Key/permission/quota errors won't be fixed by another model name -> stop early.
-            if r.status_code in (400, 401, 403, 429) and "model" not in err.lower() and "not found" not in err.lower():
-                break
+            log.warning("gemini model=%s http=%s err=%s", model, r.status_code, err[:200])
         except Exception as e:
             log.warning("gemini model=%s exception: %s", model, e)
     return None
