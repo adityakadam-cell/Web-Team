@@ -69,7 +69,7 @@
     if (d.fixes && d.fixes.length) {
       const head = document.createElement('div');
       head.style.cssText = 'padding:15px 18px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)';
-      head.textContent = d.aiSuggestions ? 'AI Smart Suggestions - tailored to this page (Gemini)' : 'Manual fixes needed for 90+';
+      head.textContent = d.aiSuggestions ? 'AI Smart Suggestions - tailored to this page' : 'Manual fixes needed for 90+';
       list.appendChild(head);
       d.fixes.forEach((f) => {
         const row = document.createElement('div');

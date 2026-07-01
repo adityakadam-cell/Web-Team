@@ -15,6 +15,43 @@
   pname.addEventListener('input', check);
   pdesc.addEventListener('input', check);
 
+  // AI suggestions for the "What should the plugin do?" field
+  const suggBtn = document.getElementById('suggBtn');
+  const suggBox = document.getElementById('suggBox');
+  const suggLabel = suggBtn ? suggBtn.innerHTML : '';
+  if (suggBtn) suggBtn.addEventListener('click', async () => {
+    suggBtn.disabled = true; suggBtn.textContent = 'Getting ideas...';
+    suggBox.innerHTML = '';
+    try {
+      const res = await fetch('/api/wp/suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: pname.value.trim(), description: pdesc.value.trim() }),
+      });
+      const data = await res.json();
+      renderSuggestions(data.suggestions || []);
+    } catch (e) { renderSuggestions([]); }
+    finally { suggBtn.disabled = false; suggBtn.innerHTML = suggLabel; }
+  });
+  function renderSuggestions(list) {
+    suggBox.innerHTML = '';
+    if (!list.length) {
+      suggBox.innerHTML = '<span style="font-size:12px;color:var(--faint)">No suggestions right now - try again in a moment.</span>';
+      return;
+    }
+    list.forEach((s) => {
+      const c = document.createElement('button');
+      c.className = 'opt';
+      c.style.cssText = 'border-color:rgba(245,158,11,.4);color:#ffe08a;background:rgba(245,158,11,.08);cursor:pointer';
+      c.textContent = '+ ' + s;
+      c.addEventListener('click', () => {
+        pdesc.value = (pdesc.value.trim() ? pdesc.value.trim() + '. ' : '') + s;
+        check();
+        c.disabled = true; c.style.opacity = '.45';
+      });
+      suggBox.appendChild(c);
+    });
+  }
+
   genBtn.addEventListener('click', async () => {
     goto(1);
     document.getElementById('genError').classList.add('hidden');

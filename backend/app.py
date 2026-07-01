@@ -90,8 +90,8 @@ WP_PAGE = """{% extends "base.html" %}
   <div class="tool-shell">
     <a class="back-link" href="{{ url_for('home') }}">&larr; Back to terminal</a>
     <div class="tool-head">
-      <h1 style="color:#fcd34d;text-shadow:0 0 20px rgba(245,158,11,.5)">WP - PLUGIN GENERATOR</h1>
-      <p>Describe a requirement and generate a ready-to-install WordPress plugin (Gemini).</p>
+      <h1 style="color:#fff">WP - PLUGIN GENERATOR</h1>
+      <p>Describe a requirement and generate a ready-to-install WordPress plugin.</p>
     </div>
     <div class="steps" id="steps">
       <div class="step-chip"><span class="num">1</span>Describe</div><div class="step-sep"></div>
@@ -104,6 +104,11 @@ WP_PAGE = """{% extends "base.html" %}
           <input class="inp" id="pname" placeholder="e.g. Speed Boost Optimizer"></div>
         <div class="field"><label class="lbl">What should the plugin do? *</label>
           <textarea class="inp" id="pdesc" placeholder="Describe the requirement in plain language. e.g. Lazy-load images, defer non-critical scripts, disable WP emojis, add Open Graph tags, with an admin settings page to toggle each."></textarea></div>
+        <button class="btn ghost" id="suggBtn" style="width:auto;margin:0 0 12px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.9L12 16l-1.8-4.7L5.5 9.4l4.7-1.8z"/></svg>
+          AI suggestions
+        </button>
+        <div id="suggBox" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 4px"></div>
         <div class="note">Generated plugins are a fast first draft - review and test on a staging site before using on a live WordPress.</div>
       </div>
       <button class="btn amber" id="genBtn" style="margin-top:20px" disabled>Generate Plugin</button>
@@ -113,7 +118,7 @@ WP_PAGE = """{% extends "base.html" %}
         <div id="genLoading" class="loading">
           <div class="spinner amber"><span class="base"></span><span class="arc"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></div>
-          <h3>Generating your plugin</h3><p>Gemini is writing the PHP...</p>
+          <h3>Generating your plugin</h3><p>The AI is writing the PHP...</p>
         </div>
         <div id="genError" class="loading hidden">
           <h3 class="bad">Generation failed</h3><p id="genErrMsg" class="bad"></p>
@@ -437,8 +442,7 @@ def _audit_report_html(url, overall, pages, categories, ai_fixes=None):
                 "<p style='margin:6px 0 0;color:#cbd5e1;font-size:13px'><b>What:</b> " + esc(f.get("what", "")) + "</p>"
                 "<p style='margin:4px 0 0;color:#9aa3b8;font-size:13px'><b>Why:</b> " + esc(f.get("why", "")) + "</p>"
                 "<p style='margin:4px 0 0;color:#9aa3b8;font-size:13px'><b>How:</b> " + esc(f.get("how", "")) + "</p></div>")
-        ai_html = ("<h2 style='font-size:18px;margin-top:28px'>AI Recommendations "
-                   "<span style='font-size:13px;color:#666'>(Gemini)</span></h2>" + cards)
+        ai_html = ("<h2 style='font-size:18px;margin-top:28px'>AI Recommendations</h2>" + cards)
 
     rows = []
     for p in pages:
@@ -746,10 +750,47 @@ def wp_generate():
         return jsonify({"error": "Plugin name and description are required"}), 400
     php = _gemini_plugin(name, desc)
     if not php:
-        return jsonify({"error": "Plugin generation is unavailable right now (Gemini key/quota). Try again shortly."}), 502
+        return jsonify({"error": "Plugin generation is busy right now. Please try again in a moment."}), 502
     import re
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "custom-plugin"
     return jsonify({"slug": slug, "name": name, "php": php, "readme": _plugin_readme(name, desc)})
+
+
+@app.route("/api/wp/suggest", methods=["POST"])
+def wp_suggest():
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    desc = (data.get("description") or "").strip()
+    if not name and not desc:
+        return jsonify({"error": "Enter a plugin name or a rough idea first"}), 400
+    return jsonify({"suggestions": _gemini_wp_suggestions(name, desc)})
+
+
+def _gemini_wp_suggestions(name: str, description: str):
+    prompt = (
+        "You are a WordPress product manager. Suggest 5 concrete FEATURE ideas to enrich the "
+        "requirement for the WordPress plugin below. Each suggestion is a short imperative phrase "
+        "(max 12 words) that could be added to the description. Return ONLY a JSON array of strings. "
+        "No markdown, no commentary.\n\n"
+        "Plugin name: " + (name or "(unnamed)") + "\nCurrent description: " + (description or "(none yet)")
+    )
+    raw = _gemini_generate(prompt)
+    if not raw:
+        return []
+    import json, re
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = re.sub(r"^json\s*", "", raw, flags=re.I).strip()
+    m = re.search(r"\[.*\]", raw, re.S)
+    if m:
+        raw = m.group(0)
+    try:
+        items = json.loads(raw)
+        return [str(x).strip()[:120] for x in items if isinstance(x, str) and x.strip()][:6]
+    except Exception as e:
+        log.warning("wp suggest parse failed: %s", e)
+        return []
 
 
 def _gemini_plugin(name: str, description: str) -> str:
@@ -790,7 +831,7 @@ def _plugin_readme(name: str, description: str) -> str:
         "== Installation ==\n"
         "1. In WP admin go to Plugins > Add New > Upload Plugin and choose the .zip.\n"
         "2. Click Install Now, then Activate.\n\n"
-        "Generated by web-team using Gemini. Review and test on a staging site before production use.\n"
+        "Generated by web-team. Review and test on a staging site before production use.\n"
     )
 
 
